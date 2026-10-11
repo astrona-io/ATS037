@@ -1,8 +1,9 @@
-# Preparation scaffold. Technical pages stay draft until authoring and review.
+# Reading-only course. YAML assessments are registered separately in assessments/index.yaml.
 training:
   id: ATS037
   title: 'KCNA: Kubernetes Fundamentals'
-  description: Preparation scaffold for Kubernetes Fundamentals. Lessons and environments are planned.
+  description: Concept lessons, diagrams and original scenario assessments covering every published objective
+    in this KCNA domain. No labs or playgrounds.
   certification:
     name: Kubernetes and Cloud Native Associate
     code: KCNA
@@ -17,7 +18,7 @@ training:
 modules:
 - id: module-intro
   title: Introduction
-  description: Planned introduction and authoring status.
+  description: Audience, learning approach, reading requirements and contribution process.
   content:
   - type: reading
     title: Introduction
@@ -33,41 +34,177 @@ modules:
     path: sections/intro/course-03-how-this-course-is-made.md
 - id: module-010
   title: Kubernetes Core Concepts
-  description: Planned coverage of this curriculum objective.
+  description: Concept lessons and scenario reasoning for Kubernetes Core Concepts.
+  draft: true
   content:
   - type: reading
-    title: Section Overview
+    title: 'Kubernetes Core Concepts: Introduction'
     path: sections/section-010/README.md
   - type: reading
-    title: Kubernetes Core Concepts
+    title: Cluster Architecture
     path: sections/section-010/module-01/course.md
+  - type: reading
+    title: Control Plane And Worker Responsibilities
+    path: sections/section-010/module-01/course-01-control-plane-and-worker-responsibilities.md
+  - type: reading
+    title: Desired State And Reconciliation
+    path: sections/section-010/module-01/course-02-desired-state-and-reconciliation.md
+  - type: reading
+    title: Summary
+    path: sections/section-010/module-01/course-03-summary.md
+  - type: reading
+    title: Kubernetes API And Resources
+    path: sections/section-010/module-02/course.md
+  - type: reading
+    title: Objects, Scope And Identity
+    path: sections/section-010/module-02/course-01-objects-scope-and-identity.md
+  - type: reading
+    title: Labels, Selectors And Ownership
+    path: sections/section-010/module-02/course-02-labels-selectors-and-ownership.md
+  - type: reading
+    title: Summary
+    path: sections/section-010/module-02/course-03-summary.md
+  - type: reading
+    title: Pods And Their Lifecycle
+    path: sections/section-010/module-03/course.md
+  - type: reading
+    title: Shared Resources And Lifecycle Evidence
+    path: sections/section-010/module-03/course-01-shared-resources-and-lifecycle-evidence.md
+  - type: reading
+    title: Restart Policies, Probes And Replacement
+    path: sections/section-010/module-03/course-02-restart-policies-probes-and-replacement.md
+  - type: reading
+    title: Summary
+    path: sections/section-010/module-03/course-03-summary.md
+  - type: reading
+    title: Workload Controllers
+    path: sections/section-010/module-04/course.md
+  - type: reading
+    title: Managing Long-Running Workloads
+    path: sections/section-010/module-04/course-01-managing-long-running-workloads.md
+  - type: reading
+    title: Completion Tasks And Scheduled Tasks
+    path: sections/section-010/module-04/course-02-completion-tasks-and-scheduled-tasks.md
+  - type: reading
+    title: Summary
+    path: sections/section-010/module-04/course-03-summary.md
 - id: module-020
   title: Administration
-  description: Planned coverage of this curriculum objective.
+  description: Concept lessons and scenario reasoning for Administration.
+  draft: true
   content:
   - type: reading
-    title: Section Overview
+    title: 'Administration: Introduction'
     path: sections/section-020/README.md
   - type: reading
-    title: Administration
+    title: Working With A Cluster
     path: sections/section-020/module-01/course.md
+  - type: reading
+    title: Contexts And Reading Cluster Evidence
+    path: sections/section-020/module-01/course-01-contexts-and-reading-cluster-evidence.md
+  - type: reading
+    title: Declarative Changes And Deletion
+    path: sections/section-020/module-01/course-02-declarative-changes-and-deletion.md
+  - type: reading
+    title: Summary
+    path: sections/section-020/module-01/course-03-summary.md
+  - type: reading
+    title: Configuration And Resource Management
+    path: sections/section-020/module-02/course.md
+  - type: reading
+    title: ConfigMaps, Secrets And Configuration Delivery
+    path: sections/section-020/module-02/course-01-configmaps-secrets-and-configuration-delivery.md
+  - type: reading
+    title: Requests, Limits And Namespace Budgets
+    path: sections/section-020/module-02/course-02-requests-limits-and-namespace-budgets.md
+  - type: reading
+    title: Summary
+    path: sections/section-020/module-02/course-03-summary.md
+  - type: reading
+    title: Operating Kubernetes
+    path: sections/section-020/module-03/course.md
+  - type: reading
+    title: Operating Responsibilities And Availability
+    path: sections/section-020/module-03/course-01-operating-responsibilities-and-availability.md
+  - type: reading
+    title: Custom Resources And Operators
+    path: sections/section-020/module-03/course-02-custom-resources-and-operators.md
+  - type: reading
+    title: Summary
+    path: sections/section-020/module-03/course-03-summary.md
 - id: module-030
   title: Scheduling
-  description: Planned coverage of this curriculum objective.
+  description: Concept lessons and scenario reasoning for Scheduling.
+  draft: true
   content:
   - type: reading
-    title: Section Overview
+    title: 'Scheduling: Introduction'
     path: sections/section-030/README.md
   - type: reading
-    title: Scheduling
+    title: Scheduling Decisions
     path: sections/section-030/module-01/course.md
+  - type: reading
+    title: Filtering, Scoring And Placement Rules
+    path: sections/section-030/module-01/course-01-filtering-scoring-and-placement-rules.md
+  - type: reading
+    title: Taints, Tolerations And Eligibility
+    path: sections/section-030/module-01/course-02-taints-tolerations-and-eligibility.md
+  - type: reading
+    title: Summary
+    path: sections/section-030/module-01/course-03-summary.md
+  - type: reading
+    title: Placement And Scaling
+    path: sections/section-030/module-02/course.md
+  - type: reading
+    title: Capacity And Pending Pods
+    path: sections/section-030/module-02/course-01-capacity-and-pending-pods.md
+  - type: reading
+    title: Replica Autoscaling And Availability
+    path: sections/section-030/module-02/course-02-replica-autoscaling-and-availability.md
+  - type: reading
+    title: Summary
+    path: sections/section-030/module-02/course-03-summary.md
 - id: module-040
   title: Containerization
-  description: Planned coverage of this curriculum objective.
+  description: Concept lessons and scenario reasoning for Containerization.
+  draft: true
   content:
   - type: reading
-    title: Section Overview
+    title: 'Containerization: Introduction'
     path: sections/section-040/README.md
   - type: reading
-    title: Containerization
+    title: Containers And Isolation
     path: sections/section-040/module-01/course.md
+  - type: reading
+    title: Processes, Namespaces And Control Groups
+    path: sections/section-040/module-01/course-01-processes-namespaces-and-control-groups.md
+  - type: reading
+    title: Runtimes And Kubernetes Integration
+    path: sections/section-040/module-01/course-02-runtimes-and-kubernetes-integration.md
+  - type: reading
+    title: Summary
+    path: sections/section-040/module-01/course-03-summary.md
+  - type: reading
+    title: Images And Registries
+    path: sections/section-040/module-02/course.md
+  - type: reading
+    title: Layers, Tags And Digests
+    path: sections/section-040/module-02/course-01-layers-tags-and-digests.md
+  - type: reading
+    title: From Build To Image Pull
+    path: sections/section-040/module-02/course-02-from-build-to-image-pull.md
+  - type: reading
+    title: Summary
+    path: sections/section-040/module-02/course-03-summary.md
+  - type: reading
+    title: Container Application Design
+    path: sections/section-040/module-03/course.md
+  - type: reading
+    title: Startup Configuration And Application State
+    path: sections/section-040/module-03/course-01-startup-configuration-and-application-state.md
+  - type: reading
+    title: Init Containers And Sidecar Patterns
+    path: sections/section-040/module-03/course-02-init-containers-and-sidecar-patterns.md
+  - type: reading
+    title: Summary
+    path: sections/section-040/module-03/course-03-summary.md

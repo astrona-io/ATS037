@@ -1,0 +1,172 @@
+schema_version: 1
+kind: question_bank
+id: ats037-section-010
+course_id: ATS037
+exam_code: KCNA
+status: draft
+provenance: Original practice material; not official examination questions.
+scope:
+  type: section
+  id: section-010
+  title: Kubernetes Core Concepts
+placement:
+  position: after
+  reading: sections/section-010/module-04/course-03-summary.md
+questions:
+- id: ats037-section-010-q01
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Identify the control plane components and their responsibilities.
+  source_readings:
+  - sections/section-010/module-01/course-01-control-plane-and-worker-responsibilities.md
+  prompt: An accepted Deployment request needs containers started on a worker. Which component actually
+    starts the container processes?
+  options:
+  - id: a
+    text: etcd.
+    explanation: It stores cluster state rather than running workloads.
+  - id: b
+    text: The node container runtime, coordinated by the kubelet.
+    explanation: The kubelet manages assigned Pods and asks the runtime to execute containers.
+  - id: c
+    text: The scheduler.
+    explanation: It assigns a suitable node rather than executing containers.
+  correct_option: b
+  explanation: The kubelet manages assigned Pods and asks the runtime to execute containers.
+- id: ats037-section-010-q02
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain how reconciliation restores a declared replica count.
+  source_readings:
+  - sections/section-010/module-01/course-02-desired-state-and-reconciliation.md
+  prompt: A Deployment requests three replicas but one managed Pod is deleted. What normally restores
+    the requested count?
+  options:
+  - id: a
+    text: The responsible controller requests a replacement Pod.
+    explanation: Reconciliation compares the desired count with existing Pods and creates a replacement.
+  - id: b
+    text: The deleted Pod keeps its identity and moves itself.
+    explanation: Deletion removes that object; a replacement has a new identity.
+  - id: c
+    text: The API client must recreate every missing Pod manually.
+    explanation: The controller already manages the desired replica count.
+  correct_option: a
+  explanation: Reconciliation compares the desired count with existing Pods and creates a replacement.
+- id: ats037-section-010-q03
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Distinguish namespaced resources from cluster resources.
+  source_readings:
+  - sections/section-010/module-02/course-01-objects-scope-and-identity.md
+  prompt: Two teams need Deployments named scout in different resource scopes. Which arrangement permits
+    this?
+  options:
+  - id: a
+    text: Give both the same namespace and identical names.
+    explanation: That would refer to one Deployment identity in that scope.
+  - id: b
+    text: Create a new node for each name.
+    explanation: Node placement does not change namespaced naming rules.
+  - id: c
+    text: Place each Deployment in a different namespace.
+    explanation: Deployment names are unique within their namespaced resource scope.
+  correct_option: c
+  explanation: Deployment names are unique within their namespaced resource scope.
+- id: ats037-section-010-q04
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain labels, selectors and annotations.
+  source_readings:
+  - sections/section-010/module-02/course-02-labels-selectors-and-ownership.md
+  prompt: A Service selector is app=scout. A Pod has only an annotation app=scout. Why is it not selected?
+  options:
+  - id: a
+    text: Every selected Pod must be owned by the Service.
+    explanation: Services select backends and do not own Pods through that relationship.
+  - id: b
+    text: Selectors match labels rather than annotations.
+    explanation: Annotations and labels have different roles in metadata.
+  - id: c
+    text: The Pod must have the same name as the Service.
+    explanation: Service selection does not depend on matching names.
+  correct_option: b
+  explanation: Annotations and labels have different roles in metadata.
+- id: ats037-section-010-q05
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Distinguish Pod phases from container states and waiting reasons.
+  source_readings:
+  - sections/section-010/module-03/course-01-shared-resources-and-lifecycle-evidence.md
+  prompt: A tool displays CrashLoopBackOff for a container. What does it describe?
+  options:
+  - id: a
+    text: Repeated restarts with a retry delay.
+    explanation: It is a container waiting reason reflecting backoff, not a separate Pod phase.
+  - id: b
+    text: A successful Pod completion phase.
+    explanation: Successful completion is different from repeated crashes.
+  - id: c
+    text: A scheduler scoring preference.
+    explanation: Container restart backoff occurs after execution attempts, not during node scoring.
+  correct_option: a
+  explanation: It is a container waiting reason reflecting backoff, not a separate Pod phase.
+- id: ats037-section-010-q06
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Compare readiness, liveness and startup probes.
+  source_readings:
+  - sections/section-010/module-03/course-02-restart-policies-probes-and-replacement.md
+  prompt: A process stays alive but temporarily cannot serve requests. Which probe controls ordinary traffic
+    eligibility?
+  options:
+  - id: a
+    text: Liveness.
+    explanation: Liveness failure can restart the container instead of only changing traffic eligibility.
+  - id: b
+    text: A probe that always succeeds.
+    explanation: That would not report the temporary inability to serve requests.
+  - id: c
+    text: Readiness.
+    explanation: Readiness determines whether the backend should receive ordinary Service traffic.
+  correct_option: c
+  explanation: Readiness determines whether the backend should receive ordinary Service traffic.
+- id: ats037-section-010-q07
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Choose Deployment, StatefulSet or DaemonSet for a workload.
+  source_readings:
+  - sections/section-010/module-04/course-01-managing-long-running-workloads.md
+  prompt: The platform needs a logging agent on every eligible node. Which controller best fits?
+  options:
+  - id: a
+    text: StatefulSet solely because logs contain state.
+    explanation: Stable member identities are not the requirement in this scenario.
+  - id: b
+    text: DaemonSet.
+    explanation: Its desired population follows eligible nodes.
+  - id: c
+    text: Deployment with an arbitrary fixed replica count.
+    explanation: A fixed count does not guarantee the node-agent placement pattern.
+  correct_option: b
+  explanation: Its desired population follows eligible nodes.
+- id: ats037-section-010-q08
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Compare a Job with a CronJob.
+  source_readings:
+  - sections/section-010/module-04/course-02-completion-tasks-and-scheduled-tasks.md
+  prompt: A finite report must run nightly and tolerate repeated attempts. Which resource requests the
+    scheduled executions?
+  options:
+  - id: a
+    text: CronJob.
+    explanation: It creates Jobs on a schedule; the task should handle repetition safely.
+  - id: b
+    text: A Deployment that keeps the report process running forever.
+    explanation: That does not express scheduled finite completion.
+  - id: c
+    text: A Service.
+    explanation: It provides an access abstraction rather than scheduling task execution.
+  correct_option: a
+  explanation: It creates Jobs on a schedule; the task should handle repetition safely.
