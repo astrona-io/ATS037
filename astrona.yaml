@@ -35,7 +35,7 @@ modules:
 - id: module-010
   title: Kubernetes Core Concepts
   description: Concept lessons and scenario reasoning for Kubernetes Core Concepts.
-  status: alpha
+  maturity: alpha
   content:
   - type: reading
     title: 'Kubernetes Core Concepts: Introduction'
@@ -91,7 +91,7 @@ modules:
 - id: module-020
   title: Administration
   description: Concept lessons and scenario reasoning for Administration.
-  status: alpha
+  maturity: alpha
   content:
   - type: reading
     title: 'Administration: Introduction'
@@ -135,7 +135,7 @@ modules:
 - id: module-030
   title: Scheduling
   description: Concept lessons and scenario reasoning for Scheduling.
-  status: alpha
+  maturity: alpha
   content:
   - type: reading
     title: 'Scheduling: Introduction'
@@ -167,7 +167,7 @@ modules:
 - id: module-040
   title: Containerization
   description: Concept lessons and scenario reasoning for Containerization.
-  status: alpha
+  maturity: alpha
   content:
   - type: reading
     title: 'Containerization: Introduction'
