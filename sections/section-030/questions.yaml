@@ -1,0 +1,134 @@
+schema_version: 1
+kind: question_bank
+id: ats037-section-030
+course_id: ATS037
+exam_code: KCNA
+status: draft
+provenance: Original practice material; not official examination questions.
+scope:
+  type: section
+  id: section-030
+  title: Scheduling
+placement:
+  position: after
+  reading: sections/section-030/module-02/course-03-summary.md
+questions:
+- id: ats037-section-030-q01
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Compare required placement rules with preferences.
+  source_readings:
+  - sections/section-030/module-01/course-01-filtering-scoring-and-placement-rules.md
+  prompt: A Pod prefers zone A but all suitable capacity is in zone B. Its rule is preferred affinity.
+    What can happen?
+  options:
+  - id: a
+    text: It ignores every resource request.
+    explanation: Preferences do not bypass resource eligibility checks.
+  - id: b
+    text: The scheduler may place it in zone B.
+    explanation: Preferences influence scores without making zone A mandatory.
+  - id: c
+    text: It must remain Pending forever solely because zone A is unavailable.
+    explanation: A preferred rule is not a hard placement restriction.
+  correct_option: b
+  explanation: Preferences influence scores without making zone A mandatory.
+- id: ats037-section-030-q02
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Predict the effect of taints and tolerations.
+  source_readings:
+  - sections/section-030/module-01/course-02-taints-tolerations-and-eligibility.md
+  prompt: A Pod tolerates a dedicated-node taint but has no node affinity. Must it run on the dedicated
+    node?
+  options:
+  - id: a
+    text: No; the toleration permits the taint but does not require that node.
+    explanation: Other suitable nodes can still be selected.
+  - id: b
+    text: Yes; every toleration attracts Pods to its tainted node.
+    explanation: Tolerations remove a restriction rather than adding attraction.
+  - id: c
+    text: No; a toleration blocks all tainted nodes.
+    explanation: A matching toleration permits the relevant taint.
+  correct_option: a
+  explanation: Other suitable nodes can still be selected.
+- id: ats037-section-030-q03
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Predict the effect of taints and tolerations.
+  source_readings:
+  - sections/section-030/module-01/course-02-taints-tolerations-and-eligibility.md
+  prompt: A taint should evict already running Pods that do not tolerate it. Which effect expresses that
+    behavior?
+  options:
+  - id: a
+    text: NoSchedule.
+    explanation: It blocks new placement but does not by itself evict existing Pods.
+  - id: b
+    text: PreferNoSchedule.
+    explanation: It is a soft placement preference rather than the requested eviction behavior.
+  - id: c
+    text: NoExecute.
+    explanation: It can affect existing Pods as well as new placement.
+  correct_option: c
+  explanation: It can affect existing Pods as well as new placement.
+- id: ats037-section-030-q04
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain why a resource request can leave a Pod Pending.
+  source_readings:
+  - sections/section-030/module-02/course-01-capacity-and-pending-pods.md
+  prompt: A Pod requests two CPUs; each eligible node has one CPU left in allocatable requested capacity.
+    Why can it remain Pending?
+  options:
+  - id: a
+    text: Its image tag automatically reserves CPU.
+    explanation: Image naming does not supply requested node capacity.
+  - id: b
+    text: No individual eligible node can fit its request.
+    explanation: Capacity across nodes cannot arbitrarily be combined for one Pod.
+  - id: c
+    text: The scheduler must split the Pod across two nodes.
+    explanation: A normal Pod is assigned as a unit to one node.
+  correct_option: b
+  explanation: Capacity across nodes cannot arbitrarily be combined for one Pod.
+- id: ats037-section-030-q05
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Distinguish replica changes from node capacity changes.
+  source_readings:
+  - sections/section-030/module-02/course-02-replica-autoscaling-and-availability.md
+  prompt: An HPA requests ten replicas but only six fit. Which separate mechanism can increase worker
+    capacity?
+  options:
+  - id: a
+    text: Node autoscaling, if suitable infrastructure and configuration are available.
+    explanation: Replica scaling and node provisioning are separate operations.
+  - id: b
+    text: The HPA itself must install four worker nodes.
+    explanation: The HPA adjusts replicas rather than directly creating nodes.
+  - id: c
+    text: Changing the Service name.
+    explanation: Service identity does not add compute capacity.
+  correct_option: a
+  explanation: Replica scaling and node provisioning are separate operations.
+- id: ats037-section-030-q06
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Relate placement and disruption handling to application availability.
+  source_readings:
+  - sections/section-030/module-02/course-02-replica-autoscaling-and-availability.md
+  prompt: A team uses a PodDisruptionBudget. Which statement correctly describes its protection?
+  options:
+  - id: a
+    text: It guarantees that node failures never interrupt service.
+    explanation: Involuntary failures remain possible.
+  - id: b
+    text: It creates extra nodes whenever availability is low.
+    explanation: A disruption budget does not provision capacity.
+  - id: c
+    text: It limits certain voluntary disruptions but does not prevent hardware failure.
+    explanation: A budget controls supported disruption operations rather than all failure causes.
+  correct_option: c
+  explanation: A budget controls supported disruption operations rather than all failure causes.

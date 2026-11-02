@@ -1,0 +1,134 @@
+schema_version: 1
+kind: question_bank
+id: ats037-section-020
+course_id: ATS037
+exam_code: KCNA
+status: draft
+provenance: Original practice material; not official examination questions.
+scope:
+  type: section
+  id: section-020
+  title: Administration
+placement:
+  position: after
+  reading: sections/section-020/module-03/course-03-summary.md
+questions:
+- id: ats037-section-020-q01
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain how a kubeconfig context selects a cluster and identity.
+  source_readings:
+  - sections/section-020/module-01/course-01-contexts-and-reading-cluster-evidence.md
+  prompt: A user changes kubeconfig context from development to production. What has changed?
+  options:
+  - id: a
+    text: All running Pods have moved clusters.
+    explanation: Local client configuration does not migrate workloads.
+  - id: b
+    text: The default cluster and credential selection for client requests.
+    explanation: A context associates a cluster, a user entry and an optional namespace.
+  - id: c
+    text: The user's authorization grants on the server.
+    explanation: Selecting credentials does not rewrite server permission policy.
+  correct_option: b
+  explanation: A context associates a cluster, a user entry and an optional namespace.
+- id: ats037-section-020-q02
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Predict how deletion interacts with workload controllers.
+  source_readings:
+  - sections/section-020/module-01/course-02-declarative-changes-and-deletion.md
+  prompt: An operator deletes one Pod while its Deployment still requests four replicas. What is the expected
+    result?
+  options:
+  - id: a
+    text: The controller can create a replacement to restore four replicas.
+    explanation: The controller's desired count remains unchanged.
+  - id: b
+    text: The Deployment permanently changes its desired count to three.
+    explanation: Pod deletion does not update the declared replica count.
+  - id: c
+    text: The application necessarily stops forever.
+    explanation: A managed workload can be recreated by its controller.
+  correct_option: a
+  explanation: The controller's desired count remains unchanged.
+- id: ats037-section-020-q03
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain how configuration changes reach a running container.
+  source_readings:
+  - sections/section-020/module-02/course-01-configmaps-secrets-and-configuration-delivery.md
+  prompt: A running container reads its log level from an environment variable. The source ConfigMap changes.
+    What should be expected?
+  options:
+  - id: a
+    text: Kubernetes edits the process environment immediately.
+    explanation: Environment values are established at startup.
+  - id: b
+    text: The ConfigMap change rebuilds the image.
+    explanation: Runtime configuration and image building are separate operations.
+  - id: c
+    text: The existing process keeps the startup value unless it is restarted or otherwise reconfigured.
+    explanation: A source update does not rewrite a running process's environment.
+  correct_option: c
+  explanation: A source update does not rewrite a running process's environment.
+- id: ats037-section-020-q04
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Distinguish resource requests from limits.
+  source_readings:
+  - sections/section-020/module-02/course-02-requests-limits-and-namespace-budgets.md
+  prompt: A container exceeds an enforced CPU limit. Which consequence is most directly associated with
+    that boundary?
+  options:
+  - id: a
+    text: The scheduler automatically moves the running Pod.
+    explanation: CPU limit enforcement does not imply continuous rescheduling.
+  - id: b
+    text: CPU throttling.
+    explanation: The process can be limited in permitted CPU time.
+  - id: c
+    text: Guaranteed memory-limit termination.
+    explanation: That is a different resource and enforcement mechanism.
+  correct_option: b
+  explanation: The process can be limited in permitted CPU time.
+- id: ats037-section-020-q05
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Compare ResourceQuota with LimitRange.
+  source_readings:
+  - sections/section-020/module-02/course-02-requests-limits-and-namespace-budgets.md
+  prompt: A namespace needs a total resource budget and default container resource settings. Which pair
+    fits?
+  options:
+  - id: a
+    text: ResourceQuota for the aggregate budget and LimitRange for defaults and constraints.
+    explanation: The resources address namespace totals and individual resource settings respectively.
+  - id: b
+    text: LimitRange to create new physical nodes and ResourceQuota to encrypt data.
+    explanation: Neither resource performs those infrastructure or security jobs.
+  - id: c
+    text: A namespace alone, because it supplies both automatically.
+    explanation: Namespacing does not automatically set budgets or resource defaults.
+  correct_option: a
+  explanation: The resources address namespace totals and individual resource settings respectively.
+- id: ats037-section-020-q06
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Describe how custom resources and Operators extend Kubernetes.
+  source_readings:
+  - sections/section-020/module-03/course-02-custom-resources-and-operators.md
+  prompt: A custom Database resource is accepted, but no database workloads appear and no controller is
+    installed. What is missing?
+  options:
+  - id: a
+    text: A requirement to rename the custom resource as a Pod.
+    explanation: Custom types can be valid; they need their intended controller.
+  - id: b
+    text: A Service selector for the API server.
+    explanation: Service selection does not implement custom-resource operations.
+  - id: c
+    text: The controller that implements reconciliation for the custom resource.
+    explanation: A resource definition registers a type without implementing application behavior.
+  correct_option: c
+  explanation: A resource definition registers a type without implementing application behavior.

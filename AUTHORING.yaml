@@ -1,0 +1,203 @@
+version: 1
+approval: KCNA-LESSON-PLAN.md approved; reading-only correction 2026-10-10
+course:
+  id: ATS037
+  certification:
+    name: Kubernetes and Cloud Native Associate
+    code: KCNA
+    provider: CNCF / Linux Foundation
+    domain: Kubernetes Fundamentals
+    weight: 44
+    competencies:
+    - Kubernetes Core Concepts
+    - Administration
+    - Scheduling
+    - Containerization
+defaults:
+  playground: false
+  module_lab: false
+  capstone: false
+  section_quiz: true
+  final_quiz: true
+sections:
+- id: section-010
+  title: Kubernetes Core Concepts
+  curriculum_item: Kubernetes Core Concepts
+  modules:
+  - id: module-01
+    title: Cluster Architecture
+    objectives:
+    - Identify the control plane components and their responsibilities.
+    - Distinguish node agents from cluster controllers.
+    - Trace a workload request from storage to container execution.
+    - Explain how reconciliation restores a declared replica count.
+    outline:
+    - Control Plane And Worker Responsibilities
+    - Desired State And Reconciliation
+    playground: false
+    module_lab: false
+    diagrams: []
+  - id: module-02
+    title: Kubernetes API And Resources
+    objectives:
+    - Read the purpose of an object's API version, kind, metadata and specification.
+    - Distinguish namespaced resources from cluster resources.
+    - Explain labels, selectors and annotations.
+    - Identify owner relationships and object identity.
+    outline:
+    - Objects, Scope And Identity
+    - Labels, Selectors And Ownership
+    playground: false
+    module_lab: false
+    diagrams: []
+  - id: module-03
+    title: Pods And Their Lifecycle
+    objectives:
+    - Explain which resources containers share inside a Pod.
+    - Distinguish Pod phases from container states and waiting reasons.
+    - Compare readiness, liveness and startup probes.
+    - Distinguish a container restart from Pod replacement.
+    outline:
+    - Shared Resources And Lifecycle Evidence
+    - Restart Policies, Probes And Replacement
+    playground: false
+    module_lab: false
+    diagrams: []
+  - id: module-04
+    title: Workload Controllers
+    objectives:
+    - Choose Deployment, StatefulSet or DaemonSet for a workload.
+    - Explain the Deployment and ReplicaSet relationship.
+    - Compare a Job with a CronJob.
+    - Identify what controllers do and what application logic must still do.
+    outline:
+    - Managing Long-Running Workloads
+    - Completion Tasks And Scheduled Tasks
+    playground: false
+    module_lab: false
+    diagrams: []
+  capstone: false
+  section_quiz: true
+- id: section-020
+  title: Administration
+  curriculum_item: Administration
+  modules:
+  - id: module-01
+    title: Working With A Cluster
+    objectives:
+    - Explain how a kubeconfig context selects a cluster and identity.
+    - Choose resource, event or log evidence for a diagnostic question.
+    - Compare declarative apply with imperative operations.
+    - Predict how deletion interacts with workload controllers.
+    outline:
+    - Contexts And Reading Cluster Evidence
+    - Declarative Changes And Deletion
+    playground: false
+    module_lab: false
+    diagrams: []
+  - id: module-02
+    title: Configuration And Resource Management
+    objectives:
+    - Choose ConfigMap or Secret for application configuration.
+    - Explain how configuration changes reach a running container.
+    - Distinguish resource requests from limits.
+    - Compare ResourceQuota with LimitRange.
+    outline:
+    - ConfigMaps, Secrets And Configuration Delivery
+    - Requests, Limits And Namespace Budgets
+    playground: false
+    module_lab: false
+    diagrams: []
+  - id: module-03
+    title: Operating Kubernetes
+    objectives:
+    - Compare managed and self-managed operating responsibilities.
+    - Explain control plane availability and datastore recovery.
+    - Distinguish application availability from control plane availability.
+    - Describe how custom resources and Operators extend Kubernetes.
+    outline:
+    - Operating Responsibilities And Availability
+    - Custom Resources And Operators
+    playground: false
+    module_lab: false
+    diagrams: []
+  capstone: false
+  section_quiz: true
+- id: section-030
+  title: Scheduling
+  curriculum_item: Scheduling
+  modules:
+  - id: module-01
+    title: Scheduling Decisions
+    objectives:
+    - Explain scheduler filtering and scoring.
+    - Compare required placement rules with preferences.
+    - Distinguish node affinity from Pod affinity.
+    - Predict the effect of taints and tolerations.
+    outline:
+    - Filtering, Scoring And Placement Rules
+    - Taints, Tolerations And Eligibility
+    playground: false
+    module_lab: false
+    diagrams: []
+  - id: module-02
+    title: Placement And Scaling
+    objectives:
+    - Explain why a resource request can leave a Pod Pending.
+    - Distinguish replica changes from node capacity changes.
+    - Explain the Horizontal Pod Autoscaler feedback loop.
+    - Relate placement and disruption handling to application availability.
+    outline:
+    - Capacity And Pending Pods
+    - Replica Autoscaling And Availability
+    playground: false
+    module_lab: false
+    diagrams: []
+  capstone: false
+  section_quiz: true
+- id: section-040
+  title: Containerization
+  curriculum_item: Containerization
+  modules:
+  - id: module-01
+    title: Containers And Isolation
+    objectives:
+    - Describe how namespaces and cgroups affect Linux processes.
+    - Compare container isolation with virtual machine isolation.
+    - Explain the container runtime's role.
+    - Distinguish the CRI from image and runtime standards.
+    outline:
+    - Processes, Namespaces And Control Groups
+    - Runtimes And Kubernetes Integration
+    playground: false
+    module_lab: false
+    diagrams: []
+  - id: module-02
+    title: Images And Registries
+    objectives:
+    - Explain image layers and the container writable layer.
+    - Distinguish a tag from a digest.
+    - Describe build, publication and image pull stages.
+    - Identify common causes of image pull failure.
+    outline:
+    - Layers, Tags And Digests
+    - From Build To Image Pull
+    playground: false
+    module_lab: false
+    diagrams: []
+  - id: module-03
+    title: Container Application Design
+    objectives:
+    - Explain command, arguments and environment settings at startup.
+    - Choose durable storage for application state.
+    - Distinguish init containers from sidecar patterns.
+    - Explain graceful termination and safe workload replacement.
+    outline:
+    - Startup Configuration And Application State
+    - Init Containers And Sidecar Patterns
+    playground: false
+    module_lab: false
+    diagrams: []
+  capstone: false
+  section_quiz: true
+assessment_format: YAML question banks, schema version 1; indexed in assessments/index.yaml
