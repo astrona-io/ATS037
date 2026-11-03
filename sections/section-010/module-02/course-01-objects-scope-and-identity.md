@@ -5,35 +5,94 @@ exam_objectives:
 ---
 # Objects, Scope And Identity
 
-Consider a Deployment named `scout` in a namespace named `starfleet`. A Kubernetes object is a stored record describing a resource. The object's API version identifies its API group and version. Its kind identifies the resource type. Metadata describes identity and other attributes; the specification describes requested behavior.
+Consider a Deployment named `scout` in a namespace named `starfleet`. To change it, to find it or to explain what it does, you must know what the record contains and where its name is valid. This part reads the four top-level fields of an object, separates namespaced resources from cluster resources and explains how the API tells two objects with the same name apart.
 
-YAML is a text format often used to represent these records. Indentation expresses structure, and field names have precise meanings. A Deployment's `replicas` value belongs in its specification. Its Pod template describes the Pods to create, including container images and labels. Putting a field at the wrong level can cause rejection or produce a different configuration from the one intended.
+## The parts of an object
 
-A namespace scopes many resource names and permissions. Two Deployments named `scout` can exist in different namespaces. A node is a cluster-scoped resource and does not belong to a namespace. Namespaces organize resources, but they do not automatically isolate network traffic or provide a separate physical cluster.
+A Kubernetes object is a stored record that describes one resource. YAML is the text format that people usually use to write these records. Indentation shows which field belongs to which parent, so a field at the wrong level is a different configuration or a rejected one. Four top-level fields appear in almost every object:
 
-An object's name identifies it within its resource type and scope. Its unique identifier distinguishes one particular object from another created later with the same name. This matters when a Pod is deleted and recreated: reusing the name does not preserve its identity or in-memory state.
+- `apiVersion` names the API group and version that define the schema, for example `apps/v1` for a Deployment and `v1` for a Pod.
+- `kind` names the resource type, for example `Deployment`.
+- `metadata` holds identity: the name, the namespace, labels, annotations and the unique identifier.
+- `spec` holds the desired state. Many objects also have `status`, which components fill in with what they observe.
 
-The API server validates the request and stores accepted state. Other components report status as they act. The status of a Deployment may show fewer available replicas than the specification requests. That difference describes incomplete progress; changing the reported status is not the way to change the desired replica count.
+Read these fields from the cluster on the playground. The command prints the first lines of the `scout` Deployment as the API stores it.
 
-Read an object by asking four questions: what type is it, where is its name scoped, what behavior is requested, and what has actually happened? Those questions separate identity, intent and evidence.
+<!-- astrona:playground:renew -->
 
-## Reading A Resource Without Confusing Its Fields
+```sh
+kubectl -n starfleet get deployment scout -o yaml | head -n 40
+```
 
-For a Deployment named `scout`, `apiVersion` identifies the API group and version that define its schema, and `kind` identifies it as a Deployment. The name and namespace belong to metadata. The replica count belongs to the Deployment specification. Container images and ports appear inside its Pod template because they describe the Pods the controller will create.
+You see `apiVersion: apps/v1` and `kind: Deployment` first. Under `metadata` you see the name, the namespace, a `uid`, a `creationTimestamp` and a `generation`. Fields that you did not write, such as `uid`, come from the API server. Keep reading down to `spec` and `status` and compare the replica counts in both.
 
-There are two distinct metadata locations worth recognizing: metadata on the Deployment and metadata on the template for its Pods. A label placed only on the Deployment does not automatically become the same label on every generated Pod. If a Service expects `app: scout` on Pods, the Pod template must supply the relevant label. Reading the indentation and containing field is therefore part of understanding the resource, not merely a formatting exercise.
+## Ask the API what a field means
 
-Object status can include an observed generation, a record of which specification revision the controller has processed. A newer specification with older observed status suggests the controller has not yet reported the current intent. Conditions and replica counts add progress evidence; they are not fields an author should overwrite to pretend the application is healthy.
+You do not need to remember every field. The command `kubectl explain` prints the schema that the API server publishes for a resource, with a description of each field.
 
-## Names And Stable Identity
+```sh
+kubectl explain deployment.spec.replicas
+kubectl explain deployment.spec.template.metadata
+```
 
-A useful resource reference includes the cluster, resource type, namespace when applicable and object name. The name `scout` alone is insufficient when several namespaces or clusters contain that application. Cluster-scoped resources such as nodes require a different scope because they have no namespace.
+The first command describes the replica count. The second shows that a Deployment has metadata in two places: its own `metadata`, and `spec.template.metadata` for the Pods it creates. The two are independent. A label that you add only to the Deployment does not appear on its Pods. If a Service expects `app: scout` on the Pods, the Pod template must carry that label.
 
-The unique identifier matters when considering deletion and ownership. Suppose one Pod named `probe` is removed, then another uses the same name. They remain different objects, with different identifiers and potentially different addresses and storage lifecycle effects. A name can be reused; an object's historical identity cannot simply be transferred to its replacement.
+```mermaid
+flowchart TB
+    D["Deployment scout"] -->|"metadata"| DM["name, namespace, labels"]
+    D -->|"spec.replicas"| R["desired count"]
+    D -->|"spec.template"| T["Pod template"]
+    T -->|"metadata.labels"| PL["labels of every Pod"]
+    T -->|"spec.containers"| C["image and ports"]
+```
+The Pod template carries its own metadata, separate from the Deployment's metadata.
 
-These distinctions help read an example accurately. First locate the object and its scope. Then separate the workload's own metadata from its template, requested behavior from reported status, and a reusable name from a specific stored identity.
+## Namespaced and cluster resources
+
+A namespace is a named scope inside a cluster. Most resource names must be unique only inside one namespace, so two Deployments named `scout` can exist in `starfleet` and in `outpost`. A namespace also scopes access rules and quotas. It does not isolate network traffic by default, and it is not a separate cluster.
+
+Some resources have no namespace. A Node, a Namespace itself and a PersistentVolume belong to the whole cluster. The API publishes this property for every resource type. List which types are namespaced and which are not:
+
+```sh
+kubectl api-resources --namespaced=true | head -n 15
+kubectl api-resources --namespaced=false | head -n 15
+```
+
+The first list contains Pods, Services, ConfigMaps and Deployments. The second contains Nodes, Namespaces and PersistentVolumes. The `APIVERSION` column in both lists is the value that you write in `apiVersion`, and the `KIND` column is the value for `kind`.
+
+Check the effect of scope by asking for the same name in two namespaces:
+
+```sh
+kubectl get deployment scout --all-namespaces
+kubectl -n outpost get deployment scout
+```
+
+The first command finds `scout` only in `starfleet`. The second command reports that no such Deployment exists in `outpost`, because the name is scoped to its namespace. A Node needs no `-n` option at all, because it has no namespace.
+
+## Name and unique identifier
+
+A resource reference is complete only with the cluster, the resource type, the namespace when the type is namespaced, and the name. The name `scout` alone is not enough when several namespaces or clusters contain that application.
+
+The name identifies an object at one moment. The `uid` in the metadata identifies one particular object for its whole life. If you delete the Pod `probe-x` and a controller creates another Pod with the same name, the names match but the unique identifiers differ. The two Pods are different objects with different addresses and different in-memory state.
+
+Read the identifier of the `scout` Pod:
+
+```sh
+kubectl -n starfleet get pod -l app=scout -o jsonpath='{.items[0].metadata.name}{"  "}{.items[0].metadata.uid}{"\n"}'
+```
+
+The command prints the Pod name and its identifier on one line. Run it again after you delete that Pod, and you see a new name and a new identifier.
+
+## Spec, status and observed generation
+
+The API server validates every request and stores the accepted state. The kubelet and the controllers report progress in `status`. The `metadata.generation` field counts changes to `spec`, and `status.observedGeneration` records the last generation that the controller processed. If the two numbers differ, the controller has not yet reported on your latest change.
+
+You now know how to read an object: the type from `kind`, the scope from the namespace, the requested behavior from `spec` and the evidence from `status`. The open question is how one object finds and relates to others, for example a Service that must reach the Pods of `scout`.
 
 ## Common pitfalls
 
 > [!WARNING]
-> A namespace is an organizational and authorization scope. Creating one does not automatically add network isolation.
+> - **Assuming a namespace isolates traffic.** A namespace scopes names, access rules and quotas. Network isolation needs a separate policy.
+> - **Labelling only the Deployment.** Labels for Pods belong in `spec.template.metadata.labels`.
+> - **Treating a reused name as the same object.** A replacement has a new `uid`.
+> - **Editing `status`.** The API server keeps the observed state. Change `spec`.

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crew-settings
+  namespace: starfleet
+data:
+  LOG_LEVEL: info
+  greeting.txt: |
+    Welcome to the Starfleet playground.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: crew-key
+  namespace: starfleet
+type: Opaque
+stringData:
+  token: playground-token

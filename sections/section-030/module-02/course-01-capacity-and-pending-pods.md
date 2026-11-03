@@ -5,35 +5,119 @@ exam_objectives:
 ---
 # Capacity And Pending Pods
 
-The `scout` Pod requests two CPUs, but each eligible node has only one CPU of unallocated requested capacity. The total across four nodes is four CPUs, yet no individual node fits the Pod. A normal Pod is assigned to one node; its resource demand cannot be divided arbitrarily across the cluster.
+A team scales the `scout` Deployment from 3 to 30 replicas. Ten of the new Pods start. The other twenty stay Pending, and nothing is wrong with the image or the code. The cluster has no node with enough free room. This part explains how the scheduler counts room, how to read the reason for a Pending Pod, and what can be done about it.
 
-Node capacity describes total resources, while allocatable capacity excludes resources reserved for the system and other purposes. The scheduler considers existing requests against allocatable resources. Low current CPU use does not imply that requested capacity is available for another Pod.
+## Capacity, allocatable and requests
 
-Pending is a broad phase. A Pod may be waiting for a scheduling decision, an image or storage preparation. Scheduling evidence such as an insufficient-resource event narrows the diagnosis. A placement restriction can also produce Pending behavior even when a node has sufficient capacity.
+A node reports two sets of numbers. Capacity is the total CPU, memory and Pod count of the machine. Allocatable is what is left for Pods after the system reserves a part for the operating system and the Kubernetes components. The scheduler works with allocatable. It subtracts the requests of the Pods already on the node and compares what remains with the requests of the new Pod. A Pod fits when its request is at most the remaining allocatable amount for each resource.
 
-Several remedies are possible, but they have different tradeoffs. Reducing an excessive request can improve fit when measurements justify the change. Adding a suitably sized node can provide capacity. Removing unnecessary hard placement constraints can make more nodes eligible. Increasing a limit alone does not reduce the request used for scheduling.
+The scheduler counts requests, not live usage. A node can be nearly idle in CPU use and still be full, because the Pods on it requested all of the CPU. A Pod with no request counts as zero for scheduling, so it always fits and can later be starved or evicted. Setting requests that match real needs is the way to make placement honest.
 
-Node autoscaling adds or removes nodes through a separate component and its infrastructure provider. It may react to unschedulable Pods, but provisioning takes time and depends on quotas, available machine types and configuration. It cannot make an impossible affinity rule true unless an appropriate new node can be created.
+```mermaid
+flowchart TB
+    C["Node capacity"] --> A["Allocatable: capacity minus system reserve"]
+    A --> R["Remaining: allocatable minus sum of Pod requests"]
+    R --> Q{"New Pod request fits?"}
+    Q -->|"yes"| N["Node is feasible"]
+    Q -->|"no"| X["Node is filtered out: Insufficient cpu or memory"]
+```
+The remaining amount depends on requests only. Real usage does not appear in this calculation.
 
-Capacity planning needs both fit and resilience. If all nodes are filled to their requested capacity, losing one can leave replacement Pods Pending. Available spare capacity and distribution across failure domains help applications recover from node loss.
+Read the numbers for the playground node:
 
-## Fit Is Per Node, Not Only Cluster Total
+<!-- astrona:playground:renew -->
 
-Assume three eligible nodes each have 700 millicores left after current requests. Their combined remainder is 2.1 CPUs. A new Pod requesting one CPU still does not fit any of them. The scheduler needs one suitable node, not a sum that can be divided across the Pod's containers on different machines.
+```sh
+kubectl get nodes -o custom-columns=NAME:.metadata.name,CPU:.status.allocatable.cpu,MEMORY:.status.allocatable.memory,PODS:.status.allocatable.pods
+kubectl describe node | grep -A10 "Allocated resources"
+```
 
-If a Pod has several containers, their requests contribute to its overall placement demand according to Kubernetes resource calculation rules. Initialization and supporting containers can therefore affect fit even when the main process appears small. Read the complete admitted Pod rather than calculating from only the main container's image or measured usage.
+The first command prints the allocatable CPU, memory and Pod count of each node. The second prints the sum of requests and limits of all Pods on the node, as an amount and as a percentage of allocatable.
 
-Storage can further reduce the candidate set. A volume available only in zone A makes spare capacity in zone B irrelevant for that consumer. A hard affinity rule can have the same effect. A reported resource shortage should be interpreted after identifying which nodes remain eligible.
+## Make a Pod that cannot fit
 
-## Choosing A Capacity Correction
+Save this as `deployment-cargo.yaml`:
 
-Reducing a request is appropriate when measurements and expected peaks show it was excessive. It is not a universal fix: understating demand can permit placement that later overloads the node. Changing a hard affinity rule may widen the candidate set but can violate latency, hardware or resilience requirements.
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cargo
+  namespace: starfleet
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cargo
+  template:
+    metadata:
+      labels:
+        app: cargo
+    spec:
+      containers:
+        - name: cargo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          resources:
+            requests:
+              cpu: "100"
+              memory: 64Mi
+```
 
-Adding a suitable node can solve real capacity shortage, but the node must match required labels, architecture and storage topology. Provisioning also depends on infrastructure quota, available machine types and the configured node groups. A node autoscaler cannot necessarily create every imaginable combination of properties.
+Apply it:
 
-Plan failure capacity as well as normal capacity. If one worker disappears, its managed replicas need room on the surviving eligible nodes or newly provisioned ones. A cluster fully committed under normal conditions can be unable to restore availability after a loss even though the controller correctly creates replacement objects. The relevant spare capacity belongs in the right failure domains and eligibility groups.
+```sh
+kubectl apply -f deployment-cargo.yaml
+```
+
+Then check the result:
+
+```sh
+kubectl -n starfleet get pods -l app=cargo
+kubectl -n starfleet describe pod -l app=cargo
+```
+
+Both Pods are `Pending`. The events contain a `FailedScheduling` message that starts with the number of nodes in the cluster and then gives the reason for each group of nodes. The reason here is `Insufficient cpu`, because no node has 100 free cores. The Pods have no node name and no container, so `kubectl logs` has nothing to show.
+
+## Reasons a Pod stays Pending
+
+The scheduling message lists one reason per group of rejected nodes. The common reasons are:
+
+- `Insufficient cpu` or `Insufficient memory`: the requests do not fit in what remains.
+- `node(s) didn't match Pod's node affinity/selector`: a node selector or affinity rule rejects the node.
+- `node(s) had untolerated taint`: the Pod does not tolerate a taint on the node.
+- `node(s) didn't have free ports` or `Too many pods`: a host port or the Pod count limit blocks the node.
+- A `PersistentVolumeClaim` that is not bound: the Pod waits for its storage.
+
+A Pod that is rejected by a ResourceQuota is a different case. The API server refuses to create it, so no Pod object exists. A Deployment shows the refusal as an event on the ReplicaSet.
+
+## Fix the cause
+
+Each reason has its own remedy. Lower the request to what the container really needs. Free room by scaling down another workload. Add nodes, by hand or with a cluster autoscaler. Remove or adjust a selector, or add a toleration. The scheduler retries by itself when something changes, so a Pending Pod starts once a fix makes a node feasible.
+
+Fix `cargo` by lowering the request, then check again:
+
+```sh
+kubectl -n starfleet patch deployment cargo --type=json -p '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests/cpu","value":"100m"}]'
+kubectl -n starfleet rollout status deployment cargo
+kubectl -n starfleet get pods -l app=cargo -o wide
+```
+
+The new Pods fit and run. The change to the Pod template made the Deployment create new Pods with the smaller request.
+
+## Priority and preemption
+
+A PriorityClass gives Pods a number. When a high priority Pod cannot fit, the scheduler can evict lower priority Pods from a node to make room. This is called preemption. The evicted Pods go back to Pending if no other node has room. Priority does not create capacity. It only decides who gets the capacity that exists.
+
+You now know how room is counted and how a Pending Pod is read. The next question is how the number of Pods and nodes can follow the load automatically.
+
+```sh
+kubectl -n starfleet delete deployment cargo
+```
 
 ## Common pitfalls
 
 > [!WARNING]
-> A low utilization graph is not proof that a Pod fits. Scheduling uses requests and eligibility, and one Pod must fit on one suitable node.
+> - **Reading usage as free room.** The scheduler subtracts requests. An idle node can be full.
+> - **Leaving requests out.** The Pod counts as zero, fits anywhere and is first to be evicted.
+> - **Reading logs of a Pending Pod.** No container ran. Read the `FailedScheduling` event.
+> - **Mixing up quota rejection and Pending.** A rejected Pod is never created. A Pending Pod exists and waits.

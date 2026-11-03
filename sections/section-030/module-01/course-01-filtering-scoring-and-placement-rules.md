@@ -5,35 +5,97 @@ exam_objectives:
 ---
 # Filtering, Scoring And Placement Rules
 
-The `scout` Pod requires a node with an attached accelerator. The scheduler cannot pick any idle machine. It examines unscheduled Pods and first filters out nodes that fail mandatory requirements. It then scores eligible nodes according to configured preferences and selects a suitable node.
+A new Pod for the `scout` application needs 500 millicores of CPU, a node with an SSD and, ideally, a different node from the other `scout` Pods. The scheduler turns those wishes into a decision. This part explains the two phases of that decision and the rules that influence each phase.
 
-A node selector requires matching node labels. Node affinity expresses richer conditions and can distinguish required rules from preferred rules. Required affinity removes unsuitable nodes from consideration. Preferred affinity influences scores but allows placement elsewhere when the preference cannot be satisfied.
+## Filtering and scoring
 
-Pod affinity and anti-affinity describe placement relative to other Pods. Affinity can keep related workloads near each other; anti-affinity can separate replicas. A topology domain is a grouping such as a node or availability zone, identified through node labels. The rule's topology key determines what “near” or “separate” means.
+The scheduler, `kube-scheduler`, watches for Pods that have no node name. For each one it runs a cycle with two main phases. In the filtering phase it removes every node that cannot run the Pod. Reasons include too little free CPU or memory compared with the Pod's requests, a node selector that does not match, a taint that the Pod does not tolerate, or a port conflict. The nodes that remain are called feasible. In the scoring phase the scheduler ranks the feasible nodes with weighted rules, for example spreading Pods or preferring a node that already has the image. The node with the highest score wins, and ties are broken at random.
 
-Topology spread constraints control how Pods are distributed across eligible topology domains. They can help keep all application replicas from concentrating in one failure domain. Required spreading and anti-affinity can also leave Pods Pending when the available cluster cannot satisfy them. A desired availability pattern still needs enough suitable nodes.
+The scheduler then writes the node name into the Pod through a binding request to the API server. The kubelet on that node sees the assignment and starts the containers. If filtering leaves no node, the Pod stays `Pending`, and the scheduler records a `FailedScheduling` event that lists why each node was rejected. It retries when the cluster changes.
 
-The scheduler normally chooses a node once for a Pod. It does not continuously move the running Pod to a better-scoring node whenever circumstances change. A replacement Pod can receive a new assignment. Placement rules also do not guarantee that external storage or network dependencies are available.
+```mermaid
+flowchart TB
+    P["Pod without a node"] --> F["Filter: remove nodes that cannot run it"]
+    F -->|"no node left"| W["Pending with FailedScheduling"]
+    F -->|"feasible nodes"| S["Score: rank the feasible nodes"]
+    S --> B["Bind the Pod to the best node"]
+    B --> K["Kubelet starts the containers"]
+```
+Filtering is a yes or no for each node. Scoring only orders the nodes that passed.
 
-Suppose three nodes have ample CPU but none has the required accelerator label. Adding replicas or reducing the image size will not solve the mandatory label mismatch. Identify each hard constraint before considering preferences or runtime symptoms.
+## Node selector
 
-## Working Through Required And Preferred Rules
+A node selector is the simplest rule. The field `spec.nodeSelector` lists labels that the node must have. A label is a key-value pair on an object. Nodes already carry labels such as `kubernetes.io/hostname` and `kubernetes.io/os`, and you can add your own. A Pod with a node selector is filtered out of every node that lacks all the labels.
 
-Assume the cluster has three nodes. Node A has an accelerator label and enough requested capacity. Node B has capacity but no accelerator label. Node C has the label but lacks enough available requested CPU. A Pod requiring the accelerator label and sufficient CPU can use A; B and C fail different mandatory checks.
+Save this as `pod-pinned.yaml`:
 
-Adding a preference for zone B does not make node B eligible if it still lacks the required label. Preferences rank the nodes that survive filtering. If only A survives, a preference cannot manufacture another valid candidate. If no node survives, the Pod remains unassigned even when some nodes score well on an irrelevant preference.
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pinned
+  namespace: starfleet
+spec:
+  nodeSelector:
+    disk: ssd
+  containers:
+    - name: pinned
+      image: busybox:1.37.0
+      command: ["sh", "-c", "sleep 3600"]
+```
 
-A node affinity requirement acts on node labels. A Pod affinity requirement acts on the location of other Pods selected by their labels, interpreted through a topology key. These are different inputs. Wanting a database and client in the same zone is not the same as wanting the client on a node with a particular disk label.
+Apply it:
 
-## Availability Versus Placement Flexibility
+<!-- astrona:playground:renew -->
 
-Hard anti-affinity can require replicas to occupy separate nodes. That supports resilience against one node loss but also requires enough eligible nodes. If the application asks for four replicas and only three nodes satisfy the other constraints, the fourth can remain Pending. Relaxing the rule changes the availability contract, so it is a design decision rather than a harmless workaround.
+```sh
+kubectl apply -f pod-pinned.yaml
+```
 
-Topology spread constraints offer a way to express distribution across domains and a tolerated imbalance. Their behavior still depends on available domains and whether the rule permits scheduling when its desired balance cannot be met. The important associate-level concept is that distribution is an explicit constraint or preference, not an automatic consequence of increasing replica count.
+Then check the result:
 
-Evaluate placement by listing the hard filters first, then the preferences among eligible nodes. Include resources and storage topology alongside labels. This makes it possible to explain why a seemingly idle cluster still cannot place a particular workload.
+```sh
+kubectl -n starfleet get pod pinned
+kubectl -n starfleet describe pod pinned
+```
+
+The Pod is `Pending`. The events show a `FailedScheduling` message that says no node matched the Pod's node selector. Now label one worker node and look again:
+
+```sh
+NODE="$(kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}')"
+kubectl label nodes "$NODE" disk=ssd
+kubectl -n starfleet get pod pinned -o wide
+```
+
+The scheduler retries after the label change, and the Pod starts on the labeled node. The label did not move the Pod. It made one node feasible.
+
+## Node affinity
+
+Node affinity does what a node selector does with more operators and a choice between hard and soft rules. The required form, `requiredDuringSchedulingIgnoredDuringExecution`, is a filter: a node that does not match is rejected. The preferred form, `preferredDuringSchedulingIgnoredDuringExecution`, is a score: each matching rule adds its weight, from 1 to 100, to the node score. A Pod can still land elsewhere. The operators include `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt` and `Lt`. The words `IgnoredDuringExecution` mean that a Pod that already runs stays when the labels of its node change later.
+
+## Pod affinity and anti-affinity
+
+Pod affinity and anti-affinity decide by the Pods that already run, not by node labels. Affinity attracts a Pod to the same topology domain as matching Pods. Anti-affinity repels it. A topology domain is the group of nodes that share one value of a label, named by `topologyKey`. With `kubernetes.io/hostname`, the domain is one node. With a zone label, the domain is a zone. Required anti-affinity on the hostname puts each replica on a different node, and a replica that cannot find a free node stays Pending.
+
+Topology spread constraints solve the same need more flexibly. A constraint states `maxSkew`, the largest allowed difference in matching Pods between domains, the `topologyKey` and what to do when the rule cannot be met: `DoNotSchedule` filters, `ScheduleAnyway` only scores.
+
+## Check what the scheduler used
+
+Scheduling reads the request numbers, not live usage. The node view shows what the scheduler sees:
+
+```sh
+kubectl describe node "$(kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}')" | grep -A8 "Allocated resources"
+kubectl get nodes --show-labels
+```
+
+The first command prints the sum of requests and limits as a share of the allocatable capacity. The second lists the labels that a node selector can use.
+
+You now know how the scheduler turns rules into a node. The next question is how a node can refuse Pods that carry no rule at all.
 
 ## Common pitfalls
 
 > [!WARNING]
-> A preferred affinity rule is not a requirement. Required rules can prevent placement even when a node has enough unused resources.
+> - **Expecting a node selector to create a label.** It only filters. A missing label leaves the Pod Pending.
+> - **Using required anti-affinity with more replicas than nodes.** The extra replicas stay Pending.
+> - **Reading `IgnoredDuringExecution` as a promise.** A running Pod is not moved when labels change.
+> - **Reasoning from live usage.** The scheduler uses requests only.

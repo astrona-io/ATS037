@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# Scheduling Decisions Lab (LAB). Graded against the live cluster. UNTESTED: built from static checks only.
+apiVersion: astrona.io/v1
+metadata:
+  name: ats-037-lab-030-01
+  docs:
+    prerequisites: prerequisites.md
+    question: question.md
+    solution: solution.md
+
+runtime:
+  type: kind
+  kind:
+    image: kindest/node:v1.35.8
+    preloadImages:
+      - ghcr.io/stefanprodan/podinfo:6.15.0
+      - mccutchen/go-httpbin:2.25.0
+      - curlimages/curl:8.22.0
+      - busybox:1.37.0
+    nodes:
+      workers: 2
+
+# Starting state: the faults are left in place on purpose.
+bootstrap:
+  init:
+    - name: seed-cluster
+      description: Create the starting state
+      type: file
+      source: bootstrap/01-seed-cluster.sh
+
+# Applied only by `astrona test`: the reference solution.
+testing:
+  init:
+    - name: apply-solution
+      description: Apply the reference solution
+      type: file
+      source: solution/apply.sh
+
+validation:
+  scripts:
+    - name: dockyard-on-ssd-node
+      description: "dockyard is unchanged and both Pods run on the -worker node, the only node with disk=ssd"
+      type: file
+      source: validation/validate-dockyard-on-ssd-node.sh
+      hint: "Read the FailedScheduling event, then label the -worker node with disk=ssd."
+    - name: worker2-tainted
+      description: "The -worker2 node has the taint dedicated=probe:NoSchedule and no other node has it"
+      type: file
+      source: validation/validate-worker2-tainted.sh
+      hint: "kubectl taint nodes <node> dedicated=probe:NoSchedule"
+    - name: escort-on-tainted-node
+      description: "escort has 2 running replicas that tolerate the taint and run only on the -worker2 node"
+      type: file
+      source: validation/validate-escort-on-tainted-node.sh
+      hint: "Add a toleration for dedicated=probe:NoSchedule and a nodeSelector on kubernetes.io/hostname."
+
+teardown:
+  keepCluster: false

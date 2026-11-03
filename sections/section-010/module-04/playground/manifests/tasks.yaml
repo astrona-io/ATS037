@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: survey
+  namespace: starfleet
+spec:
+  completions: 2
+  parallelism: 1
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: survey
+          image: busybox:1.37.0
+          command: ["sh", "-c", "echo survey done"]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sweep
+  namespace: starfleet
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: sweep
+              image: busybox:1.37.0
+              command: ["sh", "-c", "date; echo sweep done"]

@@ -1,0 +1,23 @@
+# Fault left in place on purpose: no node has the label disk=ssd, so the Pods stay Pending.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dockyard
+  namespace: starfleet
+  labels:
+    app: dockyard
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dockyard
+  template:
+    metadata:
+      labels:
+        app: dockyard
+    spec:
+      nodeSelector:
+        disk: ssd
+      containers:
+        - name: dockyard
+          image: ghcr.io/stefanprodan/podinfo:6.15.0

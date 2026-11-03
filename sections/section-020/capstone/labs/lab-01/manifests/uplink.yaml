@@ -1,0 +1,21 @@
+# Fault left in place on purpose: the image tag does not exist, so the Pod cannot pull its image.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uplink
+  namespace: starfleet
+  labels:
+    app: uplink
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: uplink
+  template:
+    metadata:
+      labels:
+        app: uplink
+    spec:
+      containers:
+        - name: uplink
+          image: ghcr.io/stefanprodan/podinfo:6.15.99

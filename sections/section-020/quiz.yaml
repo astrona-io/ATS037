@@ -1,0 +1,293 @@
+# Knowledge check for section 020. Listed in astrona.yaml as a `type: quiz` entry after the capstone lab.
+schema_version: 1
+kind: question_bank
+id: ats037-020
+course_id: ATS037
+exam_code: KCNA
+status: draft
+provenance: Original practice material written for this course; not official exam
+  questions.
+scope:
+  type: section
+  id: section-020
+  title: Administration
+questions:
+- id: ats037-020-q01
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain how a kubeconfig context selects a cluster and identity.
+  source_readings:
+  - sections/section-020/module-01/course-01-contexts-and-reading-cluster-evidence.md
+  prompt: A user changes kubeconfig context from development to production. What has
+    changed?
+  options:
+  - id: a
+    text: All running Pods have moved clusters.
+    explanation: Local client configuration does not migrate workloads.
+  - id: b
+    text: The default cluster and credential selection for client requests.
+    explanation: A context associates a cluster, a user entry and an optional namespace.
+  - id: c
+    text: The user's authorization grants on the server.
+    explanation: Selecting credentials does not rewrite server permission policy.
+  correct_option: b
+  explanation: A context associates a cluster, a user entry and an optional namespace.
+- id: ats037-020-q02
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Predict how deletion interacts with workload controllers.
+  source_readings:
+  - sections/section-020/module-01/course-02-declarative-changes-and-deletion.md
+  prompt: An operator deletes one Pod while its Deployment still requests four replicas.
+    What is the expected result?
+  options:
+  - id: a
+    text: The controller can create a replacement to restore four replicas.
+    explanation: The controller's desired count remains unchanged.
+  - id: b
+    text: The Deployment permanently changes its desired count to three.
+    explanation: Pod deletion does not update the declared replica count.
+  - id: c
+    text: The application necessarily stops forever.
+    explanation: A managed workload can be recreated by its controller.
+  correct_option: a
+  explanation: The controller's desired count remains unchanged.
+- id: ats037-020-q03
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain how configuration changes reach a running container.
+  source_readings:
+  - sections/section-020/module-02/course-01-configmaps-secrets-and-configuration-delivery.md
+  prompt: A running container reads its log level from an environment variable. The
+    source ConfigMap changes. What should be expected?
+  options:
+  - id: a
+    text: Kubernetes edits the process environment immediately.
+    explanation: Environment values are established at startup.
+  - id: b
+    text: The ConfigMap change rebuilds the image.
+    explanation: Runtime configuration and image building are separate operations.
+  - id: c
+    text: The existing process keeps the startup value unless it is restarted or otherwise
+      reconfigured.
+    explanation: A source update does not rewrite a running process's environment.
+  correct_option: c
+  explanation: A source update does not rewrite a running process's environment.
+- id: ats037-020-q04
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Distinguish resource requests from limits.
+  source_readings:
+  - sections/section-020/module-02/course-02-requests-limits-and-namespace-budgets.md
+  prompt: A container exceeds an enforced CPU limit. Which consequence is most directly
+    associated with that boundary?
+  options:
+  - id: a
+    text: The scheduler automatically moves the running Pod.
+    explanation: CPU limit enforcement does not imply continuous rescheduling.
+  - id: b
+    text: CPU throttling.
+    explanation: The process can be limited in permitted CPU time.
+  - id: c
+    text: Guaranteed memory-limit termination.
+    explanation: That is a different resource and enforcement mechanism.
+  correct_option: b
+  explanation: The process can be limited in permitted CPU time.
+- id: ats037-020-q05
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Compare ResourceQuota with LimitRange.
+  source_readings:
+  - sections/section-020/module-02/course-02-requests-limits-and-namespace-budgets.md
+  prompt: A namespace needs a total resource budget and default container resource
+    settings. Which pair fits?
+  options:
+  - id: a
+    text: ResourceQuota for the aggregate budget and LimitRange for defaults and constraints.
+    explanation: The resources address namespace totals and individual resource settings
+      respectively.
+  - id: b
+    text: LimitRange to create new physical nodes and ResourceQuota to encrypt data.
+    explanation: Neither resource performs those infrastructure or security jobs.
+  - id: c
+    text: A namespace alone, because it supplies both automatically.
+    explanation: Namespacing does not automatically set budgets or resource defaults.
+  correct_option: a
+  explanation: The resources address namespace totals and individual resource settings
+    respectively.
+- id: ats037-020-q06
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Describe how custom resources and Operators extend Kubernetes.
+  source_readings:
+  - sections/section-020/module-03/course-02-custom-resources-and-operators.md
+  prompt: A custom Database resource is accepted, but no database workloads appear
+    and no controller is installed. What is missing?
+  options:
+  - id: a
+    text: A requirement to rename the custom resource as a Pod.
+    explanation: Custom types can be valid; they need their intended controller.
+  - id: b
+    text: A Service selector for the API server.
+    explanation: Service selection does not implement custom-resource operations.
+  - id: c
+    text: The controller that implements reconciliation for the custom resource.
+    explanation: A resource definition registers a type without implementing application
+      behavior.
+  correct_option: c
+  explanation: A resource definition registers a type without implementing application
+    behavior.
+- id: ats037-020-q07
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain how a kubeconfig context selects a cluster and identity.
+  source_readings:
+  - sections/section-020/module-01/course-01-contexts-and-reading-cluster-evidence.md
+  prompt: Which part of a kubeconfig file ties one cluster entry to one user entry,
+    and optionally a default namespace?
+  options:
+  - id: a
+    text: A context.
+    explanation: Correct. A context names a cluster, a user and an optional namespace.
+      The current context decides which one `kubectl` uses.
+  - id: b
+    text: A cluster entry.
+    explanation: A cluster entry holds the server address and the certificate authority,
+      not the user.
+  - id: c
+    text: A user entry.
+    explanation: A user entry holds credentials only.
+  - id: d
+    text: A namespace entry.
+    explanation: A kubeconfig file has no namespace section.
+  correct_option: a
+  explanation: The `contexts` list pairs a cluster, a user and a namespace. Switching
+    the current context changes all three at once.
+- id: ats037-020-q08
+  type: single_choice
+  difficulty: intermediate
+  learning_objective: Predict how deletion interacts with workload controllers.
+  source_readings:
+  - sections/section-020/module-01/course-02-declarative-changes-and-deletion.md
+  prompt: A Deployment named `scout` already exists. What does `kubectl apply -f`
+    with an updated file for `scout` do, compared with `kubectl create -f`?
+  options:
+  - id: a
+    text: Both fail with an AlreadyExists error.
+    explanation: Only `create` fails. `apply` compares and updates the object.
+  - id: b
+    text: "`apply` updates the existing object to match the file. `create` fails because
+      the object exists."
+    explanation: Correct. `apply` is declarative and works for new and existing objects.
+      `create` only creates.
+  - id: c
+    text: "`apply` deletes and recreates the Deployment."
+    explanation: "`apply` patches the object. It does not recreate it."
+  - id: d
+    text: Both replace the object without any comparison.
+    explanation: "`create` never replaces an existing object."
+  correct_option: b
+  explanation: "`apply` merges the declared state into the live object. `create` is
+    imperative and fails when the object exists."
+- id: ats037-020-q09
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain how configuration changes reach a running container.
+  source_readings:
+  - sections/section-020/module-02/course-01-configmaps-secrets-and-configuration-delivery.md
+  prompt: What protects the values in a Secret that was created with default settings?
+  options:
+  - id: a
+    text: They are encrypted with a key that only the application holds.
+    explanation: The API does not encrypt Secret values for the application by default.
+  - id: b
+    text: They are only base64 encoded, so access control must protect them.
+    explanation: Correct. Base64 is an encoding, not encryption. RBAC and optional
+      encryption at rest protect the data.
+  - id: c
+    text: They are hashed, so nobody can read them back.
+    explanation: A hash cannot be reversed, but Secret values are readable by users
+      with access.
+  - id: d
+    text: They are removed from the API after the Pod reads them.
+    explanation: Secrets stay stored until deleted.
+  correct_option: b
+  explanation: Secret data is base64 encoded. Anyone who can read the Secret object
+    can decode it, so RBAC and encryption at rest matter.
+- id: ats037-020-q10
+  type: single_choice
+  difficulty: intermediate
+  learning_objective: Distinguish resource requests from limits.
+  source_readings:
+  - sections/section-020/module-02/course-02-requests-limits-and-namespace-budgets.md
+  prompt: A container exceeds its memory limit and also uses more CPU than its CPU
+    limit. What does the node do?
+  options:
+  - id: a
+    text: It throttles both, and the container keeps running.
+    explanation: Memory cannot be throttled. Only CPU is throttled.
+  - id: b
+    text: It terminates the container for the memory excess and throttles the CPU
+      use.
+    explanation: Correct. A memory excess ends in an OOM kill. A CPU excess only slows
+      the container down.
+  - id: c
+    text: It evicts the Pod for the CPU excess.
+    explanation: CPU limits throttle. They do not evict.
+  - id: d
+    text: It does nothing, because limits are only advice.
+    explanation: Limits are enforced by the node through control groups.
+  correct_option: b
+  explanation: Memory is incompressible, so the kernel kills the process. CPU is compressible,
+    so the kernel throttles it.
+- id: ats037-020-q11
+  type: single_choice
+  difficulty: intermediate
+  learning_objective: Relate placement and disruption handling to application availability.
+  source_readings:
+  - sections/section-020/module-03/course-01-operating-responsibilities-and-availability.md
+  prompt: What does a PodDisruptionBudget limit?
+  options:
+  - id: a
+    text: The number of Pods that a node crash can remove.
+    explanation: A crash is an involuntary disruption. A budget does not stop it.
+  - id: b
+    text: The CPU that Pods of an application may use.
+    explanation: Resource limits do that, not a disruption budget.
+  - id: c
+    text: The number of voluntary evictions, such as a node drain, that may take Pods
+      of an application away at one time.
+    explanation: Correct. A drain asks the eviction API, and the budget makes it wait
+      or refuse when too few Pods would remain.
+  - id: d
+    text: The number of rolling update steps.
+    explanation: The update strategy controls rollout speed.
+  correct_option: c
+  explanation: A PodDisruptionBudget protects availability during voluntary disruptions
+    such as drains. It cannot prevent crashes.
+- id: ats037-020-q12
+  type: single_choice
+  difficulty: intermediate
+  learning_objective: Describe how custom resources and Operators extend Kubernetes.
+  source_readings:
+  - sections/section-020/module-03/course-02-custom-resources-and-operators.md
+  prompt: A team applies a CustomResourceDefinition and then creates one object of
+    the new kind. Nothing else happens. Why?
+  options:
+  - id: a
+    text: The definition only registers the new API type. A controller must watch
+      the objects and act on them.
+    explanation: Correct. A custom resource is stored data. An Operator is the controller
+      that gives it behavior.
+  - id: b
+    text: Custom resources can only be created by the scheduler.
+    explanation: Users create custom resources through the API like any other object.
+  - id: c
+    text: The API server runs custom resources as Pods automatically.
+    explanation: The API server never runs workloads.
+  - id: d
+    text: The definition must be applied to every namespace before use.
+    explanation: A CustomResourceDefinition is a cluster resource.
+  correct_option: a
+  explanation: A CRD adds an API type and storage. Behavior comes from a controller,
+    which is what an Operator packages.

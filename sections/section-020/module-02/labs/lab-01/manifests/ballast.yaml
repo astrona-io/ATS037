@@ -1,0 +1,21 @@
+# Fault left in place on purpose: ballast has no resource requests or limits (QoS BestEffort).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ballast
+  namespace: starfleet
+  labels:
+    app: ballast
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ballast
+  template:
+    metadata:
+      labels:
+        app: ballast
+    spec:
+      containers:
+        - name: ballast
+          image: ghcr.io/stefanprodan/podinfo:6.15.0

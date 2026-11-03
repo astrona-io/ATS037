@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# Placement And Scaling Lab (LAB). Graded against the live cluster. UNTESTED: built from static checks only.
+apiVersion: astrona.io/v1
+metadata:
+  name: ats-037-lab-030-02
+  docs:
+    prerequisites: prerequisites.md
+    question: question.md
+    solution: solution.md
+
+runtime:
+  type: kind
+  kind:
+    image: kindest/node:v1.35.8
+    preloadImages:
+      - ghcr.io/stefanprodan/podinfo:6.15.0
+      - mccutchen/go-httpbin:2.25.0
+      - curlimages/curl:8.22.0
+      - busybox:1.37.0
+
+# Starting state: the faults are left in place on purpose.
+bootstrap:
+  init:
+    - name: seed-cluster
+      description: Create the starting state
+      type: file
+      source: bootstrap/01-seed-cluster.sh
+
+# Applied only by `astrona test`: the reference solution.
+testing:
+  init:
+    - name: apply-solution
+      description: Apply the reference solution
+      type: file
+      source: solution/apply.sh
+
+validation:
+  scripts:
+    - name: pending-reason
+      description: "capacity-notes records the scheduling failure reason and the live allocatable CPU"
+      type: file
+      source: validation/validate-pending-reason.sh
+      hint: "Read the FailedScheduling event and kubectl get nodes with custom-columns on status.allocatable.cpu."
+    - name: cargo-scheduled
+      description: "cargo has 3 ready replicas, a CPU request of at most 500m and the original image"
+      type: file
+      source: validation/validate-cargo-scheduled.sh
+      hint: "Lower the CPU request in the Pod template instead of removing it, then scale to 3."
+    - name: engine-hpa
+      description: "HPA engine targets Deployment engine with 2 to 5 replicas and a 60 percent CPU target"
+      type: file
+      source: validation/validate-engine-hpa.sh
+      hint: "Use autoscaling/v2 with a Resource metric of type Utilization."
+
+teardown:
+  keepCluster: false

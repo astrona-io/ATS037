@@ -3,7 +3,7 @@
 `assessments/index.yaml` lists banks in teaching order. Each bank uses schema
 version 1 and the contract in `schemas/question-bank.schema.json`. This is an
 authoring format for future application integration, not an existing Astrona
-quiz API. No YAML question file is registered as a Markdown reading.
+quiz API. The section `quiz.yaml` files and `sections/final-domain-quiz.yaml` are registered in `astrona.yaml` as `type: quiz` entries with a pass score of 70. The older `questions.yaml` reading banks are kept and indexed in `assessments/index.yaml`.
 
 Each section bank follows that section's final module summary. The domain bank
 follows the final section bank. Banks contain 5–15 original single-choice

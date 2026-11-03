@@ -1,0 +1,21 @@
+# Fault left in place on purpose: the image tag does not exist, so the Pod cannot pull its image.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: courier
+  namespace: starfleet
+  labels:
+    app: courier
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: courier
+  template:
+    metadata:
+      labels:
+        app: courier
+    spec:
+      containers:
+        - name: courier
+          image: ghcr.io/stefanprodan/podinfo:6.15.99

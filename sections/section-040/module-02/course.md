@@ -5,21 +5,34 @@ exam_objectives:
 ---
 # Images And Registries
 
-This module develops the reasoning needed to explain image layers and the container writable layer.
+A team deploys `scout` and the same workload behaves differently after a restart, although nobody edited the Deployment. Or a Pod stays in `ImagePullBackOff` for an hour. Both problems start at the image reference: what the string names, whether the name can change meaning, and which step of build, publish and pull has failed. If you cannot read an image reference and name the stage that failed, you cannot fix either problem.
 
-## Learning Goals
+Keep one sentence in mind for this module: **an image is a stack of immutable layers named by content, a tag is a movable label on that content, a digest is the content identity, and a pull is a separate step that can fail on its own.** You will read the digest of a running container, see that a container writable layer disappears with the container, and fix a Pod that cannot pull its image.
 
-- Explain image layers and the container writable layer.
+The module has two parts. **Layers, Tags And Digests** covers what an image contains and how a reference names it. **From Build To Image Pull** covers how an image is built, published and pulled, and how pull failures are read.
+
+## Learning goals
+
+After this module you can:
+
+- Explain image layers and the writable container layer.
 - Distinguish a tag from a digest.
-- Describe build, publication and image pull stages.
-- Identify common causes of image pull failure.
+- Describe the path from a build to a pulled image.
+- Diagnose common image pull failures.
 
-## Before You Start
+## Before you start
 
-Read the examples as descriptions of system behavior. No cluster, account, laboratory or installed tool is required. Technical terms are defined where they are used.
+You need to know what a container and a Pod are. Other terms are defined where they first appear.
 
-## Reading Order
+Your playground is a `kind` cluster running Kubernetes 1.35 with one node. The images `ghcr.io/stefanprodan/podinfo:6.15.0` and `busybox:1.37.0` are already loaded on the node, so Pods that use them start without a download. The playground has no image registry of its own.
 
-1. Layers, Tags And Digests
-2. From Build To Image Pull
-3. Summary
+| Namespace | What is in it |
+| --- | --- |
+| `starfleet` | The example workloads `scout`, `probe` and `shuttle`, one replica each, with Services for `scout` and `probe` |
+| `outpost` | The `drifter` client |
+
+`kubectl` already points at the playground cluster, as the cluster administrator.
+
+Launch your playground now, and keep it running next to you while you read the parts:
+
+<!-- astrona:playground -->

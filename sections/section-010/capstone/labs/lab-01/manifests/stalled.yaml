@@ -1,0 +1,19 @@
+# Fault left in place on purpose: the readiness probe asks for a path that does not exist, so the Pod runs but never becomes ready.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: stalled
+  namespace: starfleet
+  labels:
+    app: stalled
+spec:
+  containers:
+    - name: stalled
+      image: ghcr.io/stefanprodan/podinfo:6.15.0
+      ports:
+        - containerPort: 9898
+      readinessProbe:
+        httpGet:
+          path: /nope
+          port: 9898
+        periodSeconds: 5

@@ -1,0 +1,42 @@
+# Faults left in place on purpose: console has a missing image tag; leftover must be removed without its Pods.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: console
+  namespace: starfleet
+  labels:
+    app: console
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: console
+  template:
+    metadata:
+      labels:
+        app: console
+    spec:
+      containers:
+        - name: console
+          image: ghcr.io/stefanprodan/podinfo:6.15.99
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leftover
+  namespace: starfleet
+  labels:
+    app: leftover
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: leftover
+  template:
+    metadata:
+      labels:
+        app: leftover
+    spec:
+      containers:
+        - name: leftover
+          image: ghcr.io/stefanprodan/podinfo:6.15.0

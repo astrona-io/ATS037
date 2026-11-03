@@ -1,0 +1,25 @@
+# Fault left in place on purpose: the CPU request of 64 cores fits no node, so the Pods stay Pending.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hauler
+  namespace: starfleet
+  labels:
+    app: hauler
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hauler
+  template:
+    metadata:
+      labels:
+        app: hauler
+    spec:
+      containers:
+        - name: hauler
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          resources:
+            requests:
+              cpu: "64"
+              memory: 64Mi

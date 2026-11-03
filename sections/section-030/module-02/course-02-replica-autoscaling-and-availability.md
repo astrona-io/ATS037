@@ -5,42 +5,103 @@ exam_objectives:
 ---
 # Replica Autoscaling And Availability
 
-Traffic to `scout` increases. Adding more application replicas can share requests if the application and its dependencies support parallel work. The Horizontal Pod Autoscaler (HPA) adjusts the replica count of a supported target according to configured metrics and a control loop.
+Traffic to `scout` is ten times higher at noon than at night. Running the noon number of replicas all day wastes money. Running the night number all day fails at noon. Autoscaling adjusts the size of the system to the load. This part explains the three autoscalers, how the horizontal one decides, and what keeps the application available while the number of Pods changes.
 
-For CPU utilization targets, utilization is measured relative to resource requests. A metrics provider supplies observations; the autoscaler compares them with its target and calculates a desired replica count within configured bounds. Missing metrics or requests can prevent the expected calculation. Scaling decisions also use timing and stabilization behavior rather than responding instantly to every fluctuation.
+## Three kinds of scaling
+
+Horizontal scaling changes the number of Pod replicas. The HorizontalPodAutoscaler, written HPA, does this for a workload such as a Deployment. Vertical scaling changes the size of each Pod, meaning its requests and limits. The VerticalPodAutoscaler is an add-on that recommends or applies new sizes. Cluster scaling changes the number of nodes. A cluster autoscaler adds nodes when Pods are Pending for lack of room and removes nodes that stay mostly empty. The three work at different layers and can be combined: more replicas need room, and room comes from more nodes.
+
+## How the HPA decides
+
+The HPA is a controller that runs a loop, by default every 15 seconds. It reads a metric for the Pods of the target, compares it with the target value and computes the number of replicas it wants. For a resource metric such as CPU utilization, utilization is the usage divided by the request of the container. This is why a CPU request must exist for CPU-based scaling to work. The formula is:
+
+```
+desiredReplicas = ceil( currentReplicas * currentMetric / targetMetric )
+```
+
+With 4 replicas at 90 percent average CPU and a target of 60 percent, the HPA wants ceil(4 * 90 / 60) = 6 replicas. The result is kept between `minReplicas` and `maxReplicas`. Scale-down is slower than scale-up. A stabilization window, 300 seconds by default for scale-down, makes the HPA use the highest recommendation of the window, so short dips do not remove Pods.
+
+The metric comes from the Metrics API. A metrics server in the cluster collects CPU and memory from the kubelets and serves them through the aggregation layer. Without it, the HPA has no data. Custom metrics need an adapter that serves them through the custom metrics API.
 
 ```mermaid
 flowchart TB
-    W["Workload replicas"] -->|"measured use"| M["Metrics provider"]
-    M -->|"metrics"| H["Horizontal Pod Autoscaler"]
-    H -->|"desired replicas"| D["Deployment"]
-    D -->|"reconcile"| W
+    M["Metrics server"] -->|"CPU and memory"| H["HPA controller"]
+    H -->|"changes replicas"| D["Deployment"]
+    D --> RS["ReplicaSet"]
+    RS --> P["Pods"]
+    P -->|"usage"| M
 ```
-The feedback loop changes application replicas; it does not directly add worker nodes.
+The HPA never creates Pods. It changes the replica count of the target, and the normal controllers do the rest.
 
-More replicas need somewhere to run. An HPA can request ten replicas while only six fit on existing nodes. Node autoscaling may then provide additional capacity, but these are separate mechanisms. Vertical sizing changes resource requests or limits for a workload rather than simply adding copies.
+## Create an HPA
 
-Availability also needs ready backends, suitable spreading and resilient dependencies. A PodDisruptionBudget limits certain voluntary disruptions according to availability requirements. It does not prevent hardware failure, guarantee capacity or replace a sound application design. A budget that cannot be satisfied may block maintenance rather than solve the missing redundancy.
+Save this as `hpa-engine.yaml`:
 
-For a scenario, identify whether demand exceeds application concurrency, node capacity or a dependency's capacity. Adding request handlers cannot repair a database bottleneck by itself. Scaling is effective only when the component receiving more capacity is the limiting part of the system.
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: engine
+  namespace: starfleet
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: engine
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+```
 
-## Interpreting A CPU Utilization Target
+Apply it:
 
-Suppose four `scout` replicas each request 200 millicores and use about 100 millicores. Their CPU utilization relative to requests is about 50%. An HPA target expressed as CPU utilization compares against that request-relative measure, not the node's total CPU percentage. Changing requests can change the calculated utilization even when measured process usage stays similar.
+<!-- astrona:playground:renew -->
 
-When observed demand rises above the target, the autoscaler can request more replicas within its configured minimum and maximum. Its decisions depend on available metrics, valid target configuration and timing rules. A momentary spike need not cause an immediate matching replica increase, and missing metrics can prevent straightforward interpretation.
+```sh
+kubectl apply -f hpa-engine.yaml
+```
 
-Replica scaling assumes the workload can distribute useful work across more instances. A serial task, a fixed external bottleneck or a limited connection pool can undermine that assumption. More instances can even increase load on a struggling dependency. Inspect whether added capacity addresses the actual limiting component.
+Then check the result:
 
-## Three Different Capacity Controls
+```sh
+kubectl -n starfleet get hpa engine
+kubectl -n starfleet describe hpa engine
+```
 
-Horizontal scaling changes the number of instances. Vertical sizing changes the resources assigned to each instance. Node scaling changes the pool of machines that can host them. A healthy operating model may use all three, but they have different inputs, delays and compatibility requirements.
+The playground has no metrics server, so the target column shows `<unknown>` and the description reports that the metrics could not be read. The HPA object itself is valid and stored. This is a typical state for a new cluster: the configuration is right and the data source is missing. With a metrics server, the same object would show a percentage and would change the replica count.
 
-A replica increase can encounter Pending Pods because the node pool is full. A node increase can create unused capacity if the application is still capped at a low maximum replica count. Enlarging a container request can improve its resource allocation while reducing how many replicas fit on each node.
+## Availability while scaling
 
-Availability requires these controls to agree with readiness and placement. Disruption budgets can limit supported maintenance removals, but they cannot replace capacity after involuntary loss. A clear scaling explanation identifies the metric or requirement, the value being changed and the stage where the additional capacity becomes useful.
+Scaling changes the number of Pods. Several mechanisms keep the application usable while that happens.
+
+- Readiness probes keep a new Pod out of the Service endpoints until it can serve.
+- A rolling update strategy with `maxUnavailable` and `maxSurge` limits how many Pods are missing during a change.
+- A PodDisruptionBudget limits how many replicas voluntary disruptions, such as a node drain, may remove at once.
+- Spreading replicas over nodes and zones, with anti-affinity or topology spread constraints, means that one node failure removes only some of them.
+- Graceful shutdown lets a stopping Pod finish its requests: the Pod receives `SIGTERM`, is removed from the endpoints and has `terminationGracePeriodSeconds` to finish.
+
+An autoscaler is not a substitute for these. A fast scale-up still waits for scheduling, image pulls and readiness, so the HPA reacts in minutes, not seconds. A minimum replica count that covers the base load gives the application headroom during that time.
+
+## Choose the scaler
+
+Use an HPA for stateless workloads whose load changes. Use a VPA when the right size of a single Pod is unknown. Do not combine an HPA and a VPA on the same CPU or memory metric, because they fight over the same signal. Use a cluster autoscaler when Pods go Pending for lack of room, and nodes can be added. Scale to zero needs an extra component, because the built-in HPA keeps at least one replica unless a feature gate is on.
+
+You now know how scaling and availability fit together. Remove the test objects:
+
+```sh
+kubectl -n starfleet delete hpa engine
+```
 
 ## Common pitfalls
 
 > [!WARNING]
-> The HPA changes replicas, not node count. Additional replicas can remain Pending, and a disruption budget does not prevent involuntary failures.
+> - **Creating a CPU-based HPA for Pods without a CPU request.** Utilization is usage divided by the request, so it cannot be computed.
+> - **Expecting the HPA to work without a metrics server.** The target shows `<unknown>` and nothing scales.
+> - **Using an HPA and a VPA on the same metric.** They respond to each other and the replica count oscillates.
+> - **Setting `minReplicas: 1` for a service that must survive a node failure.** One replica is one point of failure.

@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# Core Concepts Capstone (LAB). Graded against the live cluster. UNTESTED: built from static checks only.
+apiVersion: astrona.io/v1
+metadata:
+  name: ats-037-capstone-010
+  docs:
+    prerequisites: prerequisites.md
+    question: question.md
+    solution: solution.md
+
+runtime:
+  type: kind
+  kind:
+    image: kindest/node:v1.35.8
+    preloadImages:
+      - ghcr.io/stefanprodan/podinfo:6.15.0
+      - mccutchen/go-httpbin:2.25.0
+      - curlimages/curl:8.22.0
+      - busybox:1.37.0
+
+# Starting state: the faults are left in place on purpose.
+bootstrap:
+  init:
+    - name: seed-cluster
+      description: Create the starting state
+      type: file
+      source: bootstrap/01-seed-cluster.sh
+
+# Applied only by `astrona test`: the reference solution.
+testing:
+  init:
+    - name: apply-solution
+      description: Apply the reference solution
+      type: file
+      source: solution/apply.sh
+
+validation:
+  scripts:
+    - name: relay-deployment
+      description: "Deployment relay has 3 ready replicas and the labels app=relay and tier=edge"
+      type: file
+      source: validation/validate-relay-deployment.sh
+      hint: "Add tier: edge to the Pod template labels."
+    - name: owner-evidence
+      description: "cluster-notes records the ReplicaSet that owns the relay Pods"
+      type: file
+      source: validation/validate-owner-evidence.sh
+      hint: "Read metadata.ownerReferences of a relay Pod."
+    - name: stalled-ready
+      description: "Pod stalled is Ready with its readiness probe path set to /healthz"
+      type: file
+      source: validation/validate-stalled-ready.sh
+      hint: "Probes of a Pod cannot be edited; replace the Pod."
+    - name: lookout-daemonset
+      description: "DaemonSet lookout runs busybox on every node and all its Pods are ready"
+      type: file
+      source: validation/validate-lookout-daemonset.sh
+      hint: "A DaemonSet needs no replicas field."
+    - name: nightly-cronjob
+      description: "CronJob nightly runs at 0 2 * * * with busybox, not suspended"
+      type: file
+      source: validation/validate-nightly-cronjob.sh
+      hint: "schedule: \"0 2 * * *\""
+
+teardown:
+  keepCluster: false

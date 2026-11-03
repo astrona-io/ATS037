@@ -1,0 +1,52 @@
+# Three Pods for exploring status, restarts and shared volumes.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: relay
+  namespace: starfleet
+  labels:
+    app: relay
+spec:
+  containers:
+    - name: writer
+      image: busybox:1.37.0
+      command: ["sh", "-c", "while true; do date >> /shared/log; sleep 3; done"]
+      volumeMounts:
+        - name: shared
+          mountPath: /shared
+    - name: reader
+      image: busybox:1.37.0
+      command: ["sh", "-c", "touch /shared/log; tail -f /shared/log"]
+      volumeMounts:
+        - name: shared
+          mountPath: /shared
+  volumes:
+    - name: shared
+      emptyDir: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: crashy
+  namespace: starfleet
+  labels:
+    app: crashy
+spec:
+  containers:
+    - name: crashy
+      image: busybox:1.37.0
+      command: ["sh", "-c", "echo starting; sleep 5; exit 1"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: once
+  namespace: starfleet
+  labels:
+    app: once
+spec:
+  restartPolicy: Never
+  containers:
+    - name: once
+      image: busybox:1.37.0
+      command: ["sh", "-c", "echo done"]

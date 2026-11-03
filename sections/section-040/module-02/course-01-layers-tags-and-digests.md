@@ -5,35 +5,99 @@ exam_objectives:
 ---
 # Layers, Tags And Digests
 
-The `scout` image contains application files and runtime dependencies. An image is a packaged filesystem and execution configuration used to create containers. Images commonly use reusable filesystem layers. Multiple images can share unchanged layers rather than storing every file again.
+The `scout` image contains the application files and the libraries the application needs. An image is a packaged filesystem together with the configuration that says how to run it: the default command, environment variables and the user. This part explains how an image is built from layers, what a container adds on top of them, and how a reference names an image in a way that can or cannot change over time.
 
-A running container adds a writable layer above its image data. Changes there do not rewrite the published image. Replacing the container does not make that writable layer a reliable store of application data. A volume provides a separate storage lifecycle when files need different persistence behavior.
+## Layers
 
-A registry stores and distributes container image artifacts. An image reference identifies a registry, repository and tag or digest. A tag is a human-readable reference such as `v2`; the publisher can move it to a different artifact. A digest identifies content through a cryptographic hash. Referring to a digest makes artifact selection more precise than relying on a mutable tag.
+An image is a stack of layers. Each layer is an archive of filesystem changes: files added, changed or removed relative to the layer below. A manifest lists the layers and the configuration of the image. Layers are read-only and identified by a hash of their content. Two images that start from the same base share the base layers. A registry stores each layer once, and a node downloads a layer only if it does not have it already.
 
-An image index can describe variants for several processor architectures. A node needs a compatible variant for its architecture and operating system. A correct repository name and valid credentials cannot fix an artifact that lacks a compatible platform variant.
+This reuse matters in practice. When version two of `scout` differs from version one only in the application layer, a node that has version one downloads only the new layer. A change low in the stack, such as a new base layer, changes every layer above it and forces a larger download.
 
-Tags can support a useful naming convention, but a naming convention is not an immutability guarantee. A release labeled `stable` can change without a visible change to the workload's image string. Recording the built artifact's digest makes review and incident investigation easier.
+```mermaid
+flowchart TB
+    M["Manifest: lists layers and configuration"] --> L1["Layer 1: base operating system files"]
+    M --> L2["Layer 2: runtime libraries"]
+    M --> L3["Layer 3: application files"]
+    M --> C["Configuration: command, environment, user"]
+    L3 --> W["Container writable layer: added at run time"]
+```
+The image layers are read-only. The container adds one writable layer on top.
 
-Suppose a workload restarted yesterday and received different application behavior while its tag stayed unchanged. A moved tag and a different pulled artifact are possible explanations. Compare the actual artifact identity before assuming the process configuration changed.
+## The writable container layer
 
-## Understanding Layer Reuse And Writable State
+When a container starts, the runtime adds a thin writable layer above the image layers. Files the container creates or changes go there. The image does not change, and another container started from the same image does not see those files. When the container is removed, its writable layer is removed with it.
 
-Suppose version one and version two of `scout` share the same operating system files but differ in application code. Reusing unchanged image layers can reduce transfer and storage, while the changed application layer identifies part of the new content. The final image manifest and digest identify the assembled artifact, not only the last source file edited.
+This is why the writable layer is not storage for application data. A Pod that is replaced, rescheduled or restarted by the Deployment starts again from the unchanged image. Data that must survive belongs in a volume, which has its own lifecycle. A volume mounted over a path also hides what the image has at that path, so the files a process sees depend on both the image and the mounts.
 
-During execution, a writable container layer records filesystem changes above the image. Creating a temporary report there does not publish a new registry image. Another container started from the original image does not receive the report automatically. This distinction is essential when predicting replacement and scaling behavior.
+## Prove it on the playground
 
-A volume mounted over a path can also change what files the process sees. The image may contain defaults at that path, while a mount presents different content. Effective runtime files therefore depend on both artifact content and the Pod's mounts. Looking only at the image is not enough to diagnose every configuration difference.
+Create a Pod, write a file, delete the Pod and create it again. Save this as `pod-scratch.yaml`:
 
-## Reference Names And Content Identity
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: scratch
+  namespace: starfleet
+spec:
+  containers:
+    - name: scratch
+      image: busybox:1.37.0
+      command: ["sleep", "3600"]
+```
 
-A tag such as `v2` expresses a publisher's naming convention. It can be treated as immutable by policy, but the reference mechanism itself allows movement. A digest identifies content and supports a precise link between testing, release and incident evidence. If the content changes, its content-addressed identity changes.
+Apply it and write a file:
 
-Multi-platform images commonly use an index that refers to platform-specific image manifests. An index digest can identify the collection, while the runtime selects the compatible variant for its node. This explains why platform support matters even when the top-level image reference is valid.
+<!-- astrona:playground:renew -->
 
-For a changed-behavior incident, compare the declared reference, the artifact actually used and runtime mounts or settings. The same tag with a different pulled digest is one possible cause; the same digest with different configuration is another. Separate these hypotheses rather than treating every application difference as a rebuilt image.
+```sh
+kubectl apply -f pod-scratch.yaml
+kubectl -n starfleet wait --for=condition=Ready pod/scratch --timeout=120s
+kubectl -n starfleet exec scratch -- sh -c 'echo report > /tmp/report.txt; cat /tmp/report.txt'
+```
+
+The file is printed. Now remove the Pod, create it again and look for the file:
+
+```sh
+kubectl -n starfleet delete pod scratch
+kubectl apply -f pod-scratch.yaml
+kubectl -n starfleet wait --for=condition=Ready pod/scratch --timeout=120s
+kubectl -n starfleet exec scratch -- ls /tmp
+```
+
+The directory is empty. The new Pod started from the image, and the file lived only in the writable layer of the old container.
+
+## References, tags and digests
+
+An image reference has up to four parts: a registry host, a repository path, a tag and a digest. In `ghcr.io/stefanprodan/podinfo:6.15.0` the registry is `ghcr.io`, the repository is `stefanprodan/podinfo` and the tag is `6.15.0`. When the registry is missing, the runtime uses its default registry. When the tag is missing, the tag is `latest`.
+
+A tag is a label that a publisher attaches to an image. The publisher can move it to another image at any time, so the same tag can name different content on different days. A digest has the form `sha256:` followed by a hash of the image manifest. A digest cannot name different content, because changing the content changes the hash. A reference such as `podinfo@sha256:...` always selects the same image.
+
+Tags are fine for human naming. Digests are the right reference when a release, a test result or an incident must tie to exact content.
+
+## Read the digest of a running container
+
+```sh
+kubectl -n starfleet get pods -l app=scout -o jsonpath='{.items[0].spec.containers[0].image}{"\n"}'
+kubectl -n starfleet get pods -l app=scout -o jsonpath='{.items[0].status.containerStatuses[0].imageID}{"\n"}'
+```
+
+The first command prints the reference from the Pod specification, which has a tag. The second prints the image identifier that the runtime resolved, which includes the digest after the `@` sign. The specification says what was asked for. The status says what is running.
+
+## Multi-platform images
+
+One name can cover several processor architectures. An image index is a manifest that lists one image manifest per platform. The runtime picks the entry that matches the operating system and architecture of the node. If the index has no matching entry, the pull fails even when the name, tag and credentials are correct.
+
+Suppose a workload changes behavior after a restart while its tag stays the same. Check three things in order: whether the tag was moved to new content, whether the digest the node pulled is different, and whether mounts or settings changed. Each cause is distinct, and the digest in the Pod status shows which one applies.
+
+```sh
+kubectl -n starfleet delete pod scratch
+```
 
 ## Common pitfalls
 
 > [!WARNING]
-> Tags can move. Container filesystem changes do not update the registry image, and a container's writable layer is not durable application storage.
+> - **Treating a tag as immutable.** A publisher can move a tag. Only a digest names fixed content.
+> - **Storing data in the container filesystem.** The writable layer disappears with the container.
+> - **Forgetting the default tag.** A reference with no tag means `latest`, which changes often.
+> - **Blaming credentials for a platform mismatch.** A missing platform variant fails the pull on its own.

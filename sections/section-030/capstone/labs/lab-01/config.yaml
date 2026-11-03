@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# Scheduling Capstone (LAB). Graded against the live cluster. UNTESTED: built from static checks only.
+apiVersion: astrona.io/v1
+metadata:
+  name: ats-037-capstone-030
+  docs:
+    prerequisites: prerequisites.md
+    question: question.md
+    solution: solution.md
+
+runtime:
+  type: kind
+  kind:
+    image: kindest/node:v1.35.8
+    preloadImages:
+      - ghcr.io/stefanprodan/podinfo:6.15.0
+      - mccutchen/go-httpbin:2.25.0
+      - curlimages/curl:8.22.0
+      - busybox:1.37.0
+    nodes:
+      workers: 2
+
+# Starting state: the faults are left in place on purpose.
+bootstrap:
+  init:
+    - name: seed-cluster
+      description: Create the starting state
+      type: file
+      source: bootstrap/01-seed-cluster.sh
+
+# Applied only by `astrona test`: the reference solution.
+testing:
+  init:
+    - name: apply-solution
+      description: Apply the reference solution
+      type: file
+      source: solution/apply.sh
+
+validation:
+  scripts:
+    - name: mess-placed
+      description: "mess is unchanged and both Pods run on the -worker node, the only node with zone=east"
+      type: file
+      source: validation/validate-mess-placed.sh
+      hint: "Read the event, then label the -worker node with zone=east."
+    - name: worker2-reserved
+      description: "The -worker2 node has the taint reserved=science:NoSchedule and no other node has it"
+      type: file
+      source: validation/validate-worker2-reserved.sh
+      hint: "kubectl taint nodes <node> reserved=science:NoSchedule"
+    - name: lab-bench-tolerates
+      description: "lab-bench has 2 running replicas that tolerate the taint and run only on the -worker2 node"
+      type: file
+      source: validation/validate-lab-bench-tolerates.sh
+      hint: "Add a toleration and a nodeSelector on kubernetes.io/hostname."
+    - name: placement-notes
+      description: "placement-notes records the pending reason of the hauler Pods"
+      type: file
+      source: validation/validate-placement-notes.sh
+      hint: "Read the FailedScheduling event of a hauler Pod."
+    - name: hauler-fits
+      description: "hauler has 2 ready replicas and a CPU request of at most 500m"
+      type: file
+      source: validation/validate-hauler-fits.sh
+      hint: "Lower the CPU request instead of removing it."
+    - name: hauler-hpa
+      description: "HPA hauler targets Deployment hauler with 1 to 4 replicas and a 70 percent CPU target"
+      type: file
+      source: validation/validate-hauler-hpa.sh
+      hint: "Use autoscaling/v2 with a Resource metric."
+
+teardown:
+  keepCluster: false

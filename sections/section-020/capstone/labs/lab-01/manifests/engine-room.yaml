@@ -1,0 +1,21 @@
+# Starting state: no resource requests or limits are set.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: engine-room
+  namespace: starfleet
+  labels:
+    app: engine-room
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: engine-room
+  template:
+    metadata:
+      labels:
+        app: engine-room
+    spec:
+      containers:
+        - name: engine-room
+          image: ghcr.io/stefanprodan/podinfo:6.15.0

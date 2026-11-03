@@ -5,35 +5,139 @@ exam_objectives:
 ---
 # Managing Long-Running Workloads
 
-A team needs four interchangeable `scout` web servers and controlled updates between versions. A Deployment manages a Pod template, replica count and rollout behavior for that application. A ReplicaSet maintains a requested number of matching Pods. The Deployment manages ReplicaSets so it can introduce a new template while reducing the previous replicas.
+A web service must stay up. A new version must replace the old one without a gap. A logging agent must run on every node. A database needs replicas that keep their names and their disks. Kubernetes has a workload resource for each pattern. This part explains Deployments and ReplicaSets, how a rolling update works, and how StatefulSets and DaemonSets differ.
 
-Pods are replaceable. A Deployment provides a suitable abstraction when each replica can serve the same role and no individual replica needs a stable identity. Replacing one server should not depend on recovering files from that particular Pod's writable container layer.
+## Deployment and ReplicaSet
 
-A StatefulSet manages Pods with stable ordinal names and supports stable storage associations. This is useful for applications that assign distinct identities or data to replicas. It does not configure database replication, choose a database leader or guarantee correct failover. The application still needs to implement those behaviors, and storage must provide the required properties.
+A ReplicaSet is a controller resource that keeps a set number of identical Pods running. It selects its Pods with a label selector and creates Pods from a Pod template. A Deployment is a resource one level above. It manages ReplicaSets, one for each version of the Pod template, and it adds rolling updates and rollbacks. You normally create a Deployment, and the Deployment creates the ReplicaSet.
 
-A DaemonSet places a Pod on each eligible node, or a selected group of nodes. Node-level logging agents and network agents fit this pattern. Its desired count follows eligible nodes rather than a fixed replica count requested for a web application. Scheduling restrictions still affect which nodes are eligible.
+Look at the chain for `scout` on the playground:
 
-Choose the controller by the workload's lifecycle. Interchangeable request handlers suggest a Deployment. Stable application members with individual storage suggest a StatefulSet. A node agent needed wherever workloads run suggests a DaemonSet. The fact that all three create Pods does not make their management contracts interchangeable.
+<!-- astrona:playground:renew -->
 
-A controller manages Kubernetes objects, not every external effect of the application. Recreating a Pod cannot recover unreplicated database data or guarantee that a request was processed exactly once. Controller choice and application design must agree.
+```sh
+kubectl -n starfleet get deployment,replicaset,pod -l app=scout
+kubectl -n starfleet get replicaset -l app=scout -o jsonpath='{.items[0].metadata.ownerReferences[0].kind}{"\n"}'
+```
 
-## Choosing From Identity And Placement Requirements
+You see one Deployment, one ReplicaSet whose name is the Deployment name plus a hash of the Pod template, and one Pod named after the ReplicaSet. The owner reference of the ReplicaSet names the Deployment.
 
-A controller choice starts with the application's contract. If any healthy web replica can handle a request and durable sessions live elsewhere, a Deployment is a natural fit. The replicas can be replaced and reordered because individual names are not part of the application protocol. Its Pod template and rollout settings describe how those interchangeable instances should change.
+## A rolling update
 
-A StatefulSet provides stable ordinal identity, such as a member ending in `-0` or `-1`. A database might use that identity to assign membership or associated storage. The stable name does not mean a particular physical process or node lives forever. The replacement must still start, reconnect its storage and participate correctly in the database's own protocol.
+A change to the Pod template, such as a new image, creates a new ReplicaSet. The Deployment controller then moves Pods from the old ReplicaSet to the new one in small steps. Two fields in `spec.strategy.rollingUpdate` set the step size. `maxSurge` is how many Pods above the desired count may exist during the update. `maxUnavailable` is how many Pods may be unavailable. Both accept a number or a percentage, and the default for each is 25%.
 
-A DaemonSet instead relates the desired population to eligible nodes. When another eligible worker joins, another agent may be needed; when one leaves, that node's agent no longer has the same role. A fixed Deployment replica count cannot express this relationship merely by being set equal to today's node count. The counts would diverge when the node population changed.
+```mermaid
+flowchart TB
+    D["Deployment"] -->|"scale up"| N["ReplicaSet: new template"]
+    D -->|"scale down"| O["ReplicaSet: old template"]
+    N --> P1["new Pods"]
+    O --> P2["old Pods"]
+```
+The Deployment scales the new ReplicaSet up and the old one down. The old ReplicaSet stays with zero Pods so that a rollback is possible.
 
-## Controller Management And Application Responsibility
+Start an update and watch it. Scale `scout` to three replicas, then set an environment variable on its container. Any change to the Pod template starts a rollout, and an environment variable is the smallest change to make:
 
-The Deployment-to-ReplicaSet relationship explains why directly changing a managed ReplicaSet can be temporary or misleading. The higher-level Deployment owns rollout intent and can reconcile its child resources. Similarly, changing one created Pod does not update the template for future replacements. Identify the object that owns the desired setting before describing an enduring change.
+```sh
+kubectl -n starfleet scale deployment scout --replicas=3
+kubectl -n starfleet set env deployment/scout RELEASE=2
+kubectl -n starfleet rollout status deployment scout
+kubectl -n starfleet get replicaset -l app=scout
+```
 
-Controllers also differ from load balancing and storage services. A Deployment does not automatically make replicas discoverable from outside the cluster. A StatefulSet does not guarantee the storage backend can survive a zone outage. A DaemonSet does not grant every agent unrestricted host access without security implications.
+The `rollout status` command waits until the update is complete. The last command lists two ReplicaSets: the new one with three Pods and the old one with zero. Each rollout is a revision of the Deployment.
 
-Choose the controller by identity, population and lifecycle, then supply networking, storage and permissions separately. That produces a complete explanation: what should exist, why its instances are managed that way, how clients reach them and what application behavior remains outside the controller.
+Now undo it:
+
+```sh
+kubectl -n starfleet rollout history deployment scout
+kubectl -n starfleet rollout undo deployment scout
+kubectl -n starfleet rollout status deployment scout
+```
+
+The history lists the revisions. The undo scales the previous ReplicaSet back up. A rollback is another rolling update in the other direction. It does not restore data that the application changed.
+
+If the new Pods never become ready, the rollout stops. The Deployment keeps the old Pods that still serve, because `maxUnavailable` limits how many may be removed. The condition `Progressing` on the Deployment eventually reports `ProgressDeadlineExceeded`.
+
+## StatefulSet
+
+A StatefulSet is a workload resource for applications that need a stable identity. Its Pods get ordered names, `name-0`, `name-1` and so on, that do not change when a Pod is replaced. Each Pod can have its own PersistentVolumeClaim, created from a template, which stays attached to the same ordinal after a replacement. A StatefulSet needs a headless Service, a Service with `clusterIP: None`, so that each Pod has a stable DNS name. By default it creates Pods one at a time in order and deletes them in reverse order.
+
+Save this as `statefulset-ledger.yaml`:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: ledger
+  namespace: starfleet
+spec:
+  clusterIP: None
+  selector:
+    app: ledger
+  ports:
+    - name: http
+      port: 80
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ledger
+  namespace: starfleet
+spec:
+  serviceName: ledger
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ledger
+  template:
+    metadata:
+      labels:
+        app: ledger
+    spec:
+      containers:
+        - name: ledger
+          image: busybox:1.37.0
+          command: ["sh", "-c", "sleep 3600"]
+```
+
+Apply it:
+
+```sh
+kubectl apply -f statefulset-ledger.yaml
+```
+
+Then check the result:
+
+```sh
+kubectl -n starfleet get pods -l app=ledger
+kubectl -n starfleet delete pod ledger-0
+kubectl -n starfleet get pods -l app=ledger
+```
+
+The Pods are named `ledger-0` and `ledger-1`. After you delete `ledger-0`, the StatefulSet controller creates a Pod with the same name `ledger-0`. A Deployment would create a Pod with a new random name. This stable identity is the difference.
+
+## DaemonSet
+
+A DaemonSet runs one Pod on each node that matches it, or on every node. When a node joins the cluster, the DaemonSet controller adds a Pod there. When a node is removed, the Pod is garbage collected. Use it for node-level agents such as log collectors and network plugins. It has no replica count. The controller creates one Pod for each eligible node and pins it to that node. The default scheduler then binds the Pod, and the node must still satisfy the Pod's taints and tolerations.
+
+The playground already has a DaemonSet in `kube-system`:
+
+```sh
+kubectl -n kube-system get daemonset
+```
+
+`kube-proxy` shows desired, current and ready counts equal to the number of nodes, which is two. Application DaemonSets that do not tolerate the control plane taint run only on the worker node.
+
+## Choose by requirement
+
+Use a Deployment for stateless replicas that are interchangeable and updated by rolling update. Use a StatefulSet when each replica needs a stable name and its own storage, or when start order matters. Use a DaemonSet when one copy must run on each node.
+
+You now know how the long-running controllers differ and how a rolling update uses ReplicaSets. The remaining need is work that must finish and then stop.
 
 ## Common pitfalls
 
 > [!WARNING]
-> StatefulSet provides stable identities and storage associations. It does not implement database replication or replace a backup strategy.
+> - **Creating a ReplicaSet by hand to get updates.** Only a Deployment performs rolling updates and rollbacks.
+> - **Expecting a rollback to undo data changes.** It restores the Pod template only.
+> - **Using a Deployment for a database that needs stable names and disks.** Use a StatefulSet.
+> - **Setting `maxUnavailable: 0` and `maxSurge: 0` together.** The update cannot make progress, and the API server rejects it.

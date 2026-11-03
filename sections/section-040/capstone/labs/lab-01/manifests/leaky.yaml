@@ -1,0 +1,25 @@
+# Fault left in place on purpose: the memory limit is smaller than the real need, so the container is OOMKilled again and again.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leaky
+  namespace: starfleet
+  labels:
+    app: leaky
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: leaky
+  template:
+    metadata:
+      labels:
+        app: leaky
+    spec:
+      containers:
+        - name: leaky
+          image: busybox:1.37.0
+          command: ["sh", "-c", "a=$(head -c 30000000 /dev/zero | tr '\\0' x); sleep 3600"]
+          resources:
+            limits:
+              memory: 16Mi

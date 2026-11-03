@@ -5,35 +5,107 @@ exam_objectives:
 ---
 # Declarative Changes And Deletion
 
-The `scout` Deployment should have three replicas. In declarative management, an author records the intended resource configuration and submits it to Kubernetes. The apply operation creates or updates the object toward that recorded intent. The controller then works toward the requested runtime state.
+A team keeps the definition of `scout` in a file. A colleague changes the replica count with a command and forgets to update the file. The next time the file is applied, the colleague's change is gone, and nobody knows why. This part explains the difference between changing a cluster with commands and changing it from files, and shows what a deletion removes.
 
-Imperative management asks for a particular action, such as creating an object or scaling a workload. Both styles can be useful, but changes made only as manual actions are harder to reproduce unless recorded. A versioned configuration provides a reviewable description of the state a team intends to maintain.
+## Imperative and declarative
 
-Applying a Deployment does not apply every dependency it mentions. A referenced Secret, image or storage claim must exist or become available through another process. Successful validation also does not prove that the referenced application starts. The distinction between valid configuration and achievable behavior remains important after every change.
+An imperative command tells the cluster which action to take: `kubectl create deployment`, `kubectl scale`, `kubectl delete`. The result depends on the state at the time you run it. Running `kubectl create` twice for the same name fails the second time, because the object already exists.
 
-Deleting a controller and deleting its Pod have different consequences. Deleting a managed Pod can cause its controller to create a replacement. To stop a Deployment-managed application, change the controller's desired state or remove the controller according to the intended lifecycle. Repeatedly deleting Pods while keeping a positive replica count asks the controller to keep undoing the deletion.
+A declarative change gives the cluster the state you want, as a file, and lets `kubectl` work out the difference. The command is `kubectl apply -f file.yaml`. It creates the object when it does not exist and updates it when it does. It can run any number of times with the same result. A file in version control then becomes the record of what the cluster should look like.
 
-Object deletion may take time. Graceful termination lets processes stop safely, and finalizers can defer object removal until a responsible component finishes cleanup. A deletion request therefore does not always mean the object immediately disappears. External data and storage also have their own retention rules.
+`kubectl apply` records what you applied last. On the next apply it compares three versions: the last applied one, the live object and the new file. A field that you removed from the file is removed from the object. A field that only another actor set, such as a controller, stays. Newer clusters also support server-side apply, which tracks which actor owns each field and reports conflicts. The command is `kubectl apply --server-side`.
 
-Reason through a change using intent, ownership and dependencies. Identify the object that owns the desired value, preserve a reviewable record of the change, and check observed behavior after reconciliation. That approach avoids treating a transient Pod as the source of application configuration.
+## Apply a file and preview a change
 
-## Desired Configuration And Field Ownership
+Save this as `deployment-bridge.yaml`:
 
-A declarative file records that `scout` should use three replicas and a particular image. Applying it asks Kubernetes to create or update the corresponding resource. It does not synchronously run all necessary processes, and the author should still inspect progress and behavior after the API accepts the change.
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bridge
+  namespace: starfleet
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: bridge
+  template:
+    metadata:
+      labels:
+        app: bridge
+    spec:
+      containers:
+        - name: bridge
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+```
 
-Several tools can modify one object. Server-side apply tracks field management so incompatible changes from different managers can produce a conflict instead of silently overwriting another manager's intent. This makes ownership of a setting important: a human replica edit may conflict with an autoscaler or delivery controller that also manages it. Resolving the conflict requires deciding which source should own the desired value.
+Apply it:
 
-Declarative management is not a substitute for careful review. A mistaken namespace can apply a valid resource to the wrong location. An updated Pod template can create a new rollout even if the intended change was only a label. The actual object diff matters more than whether the operation is described as declarative.
+<!-- astrona:playground:renew -->
 
-## Deletion Is A Lifecycle Operation
+```sh
+kubectl apply -f deployment-bridge.yaml
+```
 
-Deleting one Pod affects a disposable instance. Deleting its Deployment removes the controller intent for that workload and can affect owned resources according to garbage collection behavior. Deleting a storage claim affects a different lifecycle and can trigger backing storage reclamation. These are not interchangeable ways to “clean up an application.”
+Then check the result:
 
-A finalizer is a metadata mechanism that prevents completed object removal until its cleanup condition is handled. An object can have a deletion timestamp while still being present. Removing finalizers without understanding the responsible cleanup can leave external resources or data in an inconsistent state.
+```sh
+kubectl -n starfleet get deployment bridge
+```
 
-Choose the object that owns the desired outcome and examine its relationships before changing or deleting it. The result should be reproducible in the intended configuration source, and verification should include dependent resources and user-facing behavior rather than only whether one API request succeeded.
+The Deployment shows two replicas. Now edit the file and set `replicas: 3`, then preview before you apply:
+
+```sh
+kubectl diff -f deployment-bridge.yaml
+kubectl apply -f deployment-bridge.yaml --dry-run=server
+kubectl apply -f deployment-bridge.yaml
+```
+
+The `diff` command prints the lines that would change and changes nothing. The option `--dry-run=server` sends the request to the API server, which validates it and runs admission checks but does not store the result. The third command applies the change. The option `--dry-run=client` checks only on your machine and is weaker.
+
+```mermaid
+flowchart TB
+    F["File: desired state"] --> D["kubectl diff"]
+    D --> A["kubectl apply"]
+    A --> S["API server stores spec"]
+    S --> C["Controllers reconcile"]
+```
+The file states the result. The controllers do the work that gets the cluster there.
+
+## What a delete removes
+
+`kubectl delete` removes the object you name. Objects that depend on it are removed in a second step, by the garbage collector. A dependent object has an owner reference that names its owner. A Deployment owns ReplicaSets, and a ReplicaSet owns Pods. When you delete the Deployment, the collector deletes the ReplicaSets, and then the Pods.
+
+Three cascade modes exist. With the default `background`, the owner is deleted at once and the dependents are deleted afterwards. With `foreground`, the owner stays visible until all its dependents are gone. With `orphan`, the dependents are kept and lose their owner reference.
+
+Try the difference on the playground:
+
+```sh
+kubectl -n starfleet delete pod -l app=bridge
+kubectl -n starfleet get pods -l app=bridge
+kubectl -n starfleet delete deployment bridge --cascade=orphan
+kubectl -n starfleet get replicaset,pods -l app=bridge
+```
+
+Deleting the Pods of a Deployment does not remove the workload. The ReplicaSet notices the missing Pods and creates new ones, so the list shows young Pods. Deleting the Deployment with `--cascade=orphan` leaves the ReplicaSet and its Pods running with no owner. Nothing manages them any more. To remove a workload, delete its owner, not its Pods.
+
+## Grace periods and finalizers
+
+A deleted Pod does not vanish at once. The API server sets a deletion timestamp, and the kubelet sends `SIGTERM` to the containers. The Pod gets `terminationGracePeriodSeconds` to stop, 30 seconds by default, before the kubelet sends `SIGKILL`. A Pod in the `Terminating` state is in that window.
+
+A finalizer is a string on an object that blocks removal until a controller has done its clean-up work and removed the string. An object with a deletion timestamp and a finalizer stays in the list as `Terminating`. Removing a finalizer by hand skips the clean-up, so it is a last resort.
+
+You now know how to change a cluster from a file and how deletion follows ownership. Clean up the test objects:
+
+```sh
+kubectl -n starfleet delete replicaset -l app=bridge
+```
 
 ## Common pitfalls
 
 > [!WARNING]
-> Deleting one managed Pod usually does not stop its application. The controller can replace it because the desired replica count has not changed.
+> - **Mixing `create` and `apply` for the same object.** `apply` has no record of the object that `create` made, and the first apply can warn or conflict.
+> - **Editing the live object and not the file.** The next apply from the file overwrites the edit.
+> - **Deleting Pods to remove a workload.** The controller creates them again. Delete the owner.
+> - **Removing a finalizer to make an object go away.** The clean-up that the finalizer protects is skipped.

@@ -1,3 +1,4 @@
+---
 schema_version: 1
 course_id: ATS037
 status: draft
@@ -32,3 +33,19 @@ banks:
   placement:
     position: after
     reading: sections/section-040/module-03/course-03-summary.md
+quizzes:
+- id: ats037-010
+  path: sections/section-010/quiz.yaml
+  question_count: 12
+- id: ats037-020
+  path: sections/section-020/quiz.yaml
+  question_count: 12
+- id: ats037-030
+  path: sections/section-030/quiz.yaml
+  question_count: 12
+- id: ats037-040
+  path: sections/section-040/quiz.yaml
+  question_count: 12
+- id: ats037-final
+  path: sections/final-domain-quiz.yaml
+  question_count: 24

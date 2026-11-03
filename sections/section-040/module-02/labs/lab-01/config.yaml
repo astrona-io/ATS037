@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# Images And Registries Lab (LAB). Graded against the live cluster. UNTESTED: built from static checks only.
+apiVersion: astrona.io/v1
+metadata:
+  name: ats-037-lab-040-02
+  docs:
+    prerequisites: prerequisites.md
+    question: question.md
+    solution: solution.md
+
+runtime:
+  type: kind
+  kind:
+    image: kindest/node:v1.35.8
+    preloadImages:
+      - ghcr.io/stefanprodan/podinfo:6.15.0
+      - mccutchen/go-httpbin:2.25.0
+      - curlimages/curl:8.22.0
+      - busybox:1.37.0
+
+# Starting state: the faults are left in place on purpose.
+bootstrap:
+  init:
+    - name: seed-cluster
+      description: Create the starting state
+      type: file
+      source: bootstrap/01-seed-cluster.sh
+
+# Applied only by `astrona test`: the reference solution.
+testing:
+  init:
+    - name: apply-solution
+      description: Apply the reference solution
+      type: file
+      source: solution/apply.sh
+
+validation:
+  scripts:
+    - name: courier-running
+      description: "courier uses ghcr.io/stefanprodan/podinfo:6.15.0 and has 1 ready replica"
+      type: file
+      source: validation/validate-courier-running.sh
+      hint: "Read the event, then kubectl set image with an existing tag."
+    - name: cached-pod
+      description: "Pod cached runs busybox:1.37.0 with imagePullPolicy IfNotPresent set explicitly"
+      type: file
+      source: validation/validate-cached-pod.sh
+      hint: "Set imagePullPolicy: IfNotPresent in the container."
+    - name: image-facts
+      description: "ConfigMap image-facts holds the repository and the digest of the running courier image"
+      type: file
+      source: validation/validate-image-facts.sh
+      hint: "Read status.containerStatuses[0].imageID and keep the part after the @ sign."
+
+teardown:
+  keepCluster: false

@@ -5,42 +5,159 @@ exam_objectives:
 ---
 # Init Containers And Sidecar Patterns
 
-Before `scout` starts, a preparation task must create a file in a shared volume. A regular init container runs before the application containers and must complete successfully. Multiple regular init containers run in their defined order. If initialization cannot finish, the application does not begin normal execution.
+An application needs a generated configuration file before it starts, and it needs a helper that ships its logs while it runs. Putting both jobs into the application image mixes unrelated tools and releases. A Pod can hold several containers that share a network and volumes, so each job can be its own container with its own image. This part explains the two kinds of helper container: the init container, which prepares, and the sidecar container, which assists.
 
-A sidecar pattern places a supporting container beside the main application in the same Pod. The helper might forward logs or proxy requests while the application runs. It shares the Pod's lifecycle and network context, which is useful when the two processes need close coordination. An unrelated application with its own scaling needs usually belongs in a separate workload.
+## Init containers
 
-Kubernetes also supports restartable init containers for native sidecar behavior. An init container with the supported restart policy can keep running after startup and support ordering relative to other initialization and application containers. This differs from a regular init container, which is expected to finish before normal application startup.
+An init container is a container that runs to completion before the application containers start. A Pod can have several, and they run one at a time in the order they are listed. Each must exit with status 0 before the next starts. When all have succeeded, the application containers start together.
 
-Shared placement does not automatically share files. Both containers need a volume mounted where their processes expect it. They must also avoid conflicting listener ports because the Pod shares a network namespace. Each container has its own image and resource settings.
+If an init container fails, the kubelet restarts it according to the Pod `restartPolicy`, and the application containers do not start. The Pod status shows the progress as `Init:0/1`, and `Init:Error` or `Init:CrashLoopBackOff` after failures. Init containers are therefore the right place for work that must finish before the application runs: waiting for a dependency, running a database migration, downloading or generating files, or setting file permissions.
+
+Init containers use their own image. A tool that is needed only at start, such as a client for downloading files, does not have to be in the application image. They share the Pod volumes, which is how they hand files to the application.
 
 ```mermaid
 flowchart TB
-    I["Regular init task"] -->|"completes"| A["Application starts"]
-    A -->|"runs alongside"| S["Sidecar helper"]
-    A -->|"shared mount"| V["Pod volume"]
-    S -->|"shared mount"| V
+    S["Pod starts"] --> I1["Init container 1 runs to completion"]
+    I1 --> I2["Init container 2 runs to completion"]
+    I2 --> A["Application containers start"]
+    I1 -->|"fails"| R["Kubelet restarts it; the application waits"]
 ```
-A completion task gates startup, while a sidecar supports the running application through explicitly shared resources.
+Application containers never start while an init container is failing.
 
-Choose the pattern from duration and coupling. A one-time file preparation step fits a regular init container. Continuous log forwarding fits a sidecar. A separately scalable report processor does not become a sidecar merely because it communicates with the application.
+## Run an init container
 
-## One-Time Preparation Versus Ongoing Support
+Save this as `pod-builder.yaml`:
 
-Suppose a regular init container writes generated settings to a volume. The main process reads those settings from the same volume. The initializer's image filesystem is separate, so merely writing to an unmounted local directory does not deliver the file. Both containers need mounts that expose the shared data at the expected paths.
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: builder
+  namespace: starfleet
+spec:
+  volumes:
+    - name: work
+      emptyDir: {}
+  initContainers:
+    - name: prepare
+      image: busybox:1.37.0
+      command: ["sh", "-c", "echo mission=ready > /work/config.txt"]
+      volumeMounts:
+        - name: work
+          mountPath: /work
+  containers:
+    - name: app
+      image: busybox:1.37.0
+      command: ["sh", "-c", "cat /work/config.txt; sleep 3600"]
+      volumeMounts:
+        - name: work
+          mountPath: /work
+```
 
-Regular init ordering can express dependencies between preparation tasks: download data, transform it, then start the application. Each task must finish successfully. A loop that waits forever for a dependency can block the application indefinitely, so bounded waits and useful failure evidence matter. Initialization cannot guarantee that an external dependency will remain available after startup.
+Apply it:
 
-A sidecar provides ongoing support, such as log forwarding or proxying. Its resource consumption contributes to the Pod's needs, and its failures can affect the application even if the main process remains alive. Putting a helper in the same Pod can simplify local communication but couples its placement and replacement to the application.
+<!-- astrona:playground:renew -->
 
-## Native Sidecar Ordering And Independent Services
+```sh
+kubectl apply -f pod-builder.yaml
+kubectl -n starfleet wait --for=condition=Ready pod/builder --timeout=120s
+```
 
-A restartable init container uses supported native sidecar behavior rather than regular completion semantics. It can start as part of initialization and continue while application containers run. Startup checks can participate in deciding when subsequent initialization proceeds. This provides an explicit lifecycle contract rather than relying only on two ordinary containers racing to become ready.
+Then check the result:
 
-A separately scalable backend belongs in its own workload when it serves many application replicas or has independent resource and lifecycle needs. Co-location is not a default for every communicating component. A database used by twenty web replicas should not become twenty uncoordinated helper containers merely to avoid networking.
+```sh
+kubectl -n starfleet logs builder -c app
+kubectl -n starfleet get pod builder -o jsonpath='{.status.initContainerStatuses[0].state.terminated.reason}{"\n"}'
+```
 
-Choose the container pattern from startup order, duration, shared resources and ownership. A one-time dependency task, an ongoing per-instance helper and an independently operated service are different designs. Their differences determine both startup behavior and the consequences of replacing a Pod.
+The log of the application shows the line that the init container wrote, because both containers mount the same `emptyDir` volume. The second command prints `Completed`, the reason of the finished init container.
+
+## A failing init container
+
+Change the command of the init container so that it fails. Save this as `pod-stuck.yaml`:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: stuck
+  namespace: starfleet
+spec:
+  initContainers:
+    - name: prepare
+      image: busybox:1.37.0
+      command: ["sh", "-c", "cp /missing/input.txt /tmp/input.txt"]
+  containers:
+    - name: app
+      image: busybox:1.37.0
+      command: ["sleep", "3600"]
+```
+
+```sh
+kubectl apply -f pod-stuck.yaml
+kubectl -n starfleet get pod stuck
+kubectl -n starfleet logs stuck -c prepare
+```
+
+The Pod is not `Running`. Its status shows an `Init` state with errors, and the application container has not started at all. The log of the init container names the file that does not exist. Reading the log of the application container would show nothing, so the init container is the place to look.
+
+## Sidecar containers
+
+A sidecar is a container that runs beside the application container for the life of the Pod. It adds a function without changing the application: shipping logs, refreshing credentials, proxying network traffic or collecting metrics. It shares the network namespace and can share volumes. Three classic patterns use the same shape. A sidecar extends the application. An adapter converts its output, for example into another log or metric format. An ambassador proxies its connections to the outside.
+
+Before Kubernetes 1.29 a sidecar was an ordinary second container. That has two weaknesses: the sidecar can start after the application, and in a Job the Pod never finishes while the sidecar still runs. Kubernetes now supports native sidecars. A native sidecar is an init container with `restartPolicy: Always`. It starts in the init order, so it is running before the application starts, it keeps running while the application runs and it is restarted if it exits. It is stopped after the application containers when the Pod ends.
+
+Save this as `pod-shipper.yaml`:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: shipper
+  namespace: starfleet
+spec:
+  volumes:
+    - name: logs
+      emptyDir: {}
+  initContainers:
+    - name: tail
+      image: busybox:1.37.0
+      restartPolicy: Always
+      command: ["sh", "-c", "touch /logs/app.log; tail -f /logs/app.log"]
+      volumeMounts:
+        - name: logs
+          mountPath: /logs
+  containers:
+    - name: app
+      image: busybox:1.37.0
+      command: ["sh", "-c", "while true; do date >> /logs/app.log; sleep 5; done"]
+      volumeMounts:
+        - name: logs
+          mountPath: /logs
+```
+
+```sh
+kubectl apply -f pod-shipper.yaml
+kubectl -n starfleet wait --for=condition=Ready pod/shipper --timeout=120s
+kubectl -n starfleet logs shipper -c tail
+```
+
+The log of the sidecar shows the lines that the application appends. The Pod is ready only when the sidecar has started and the application is ready.
+
+## Choose the pattern
+
+Use an init container when the work must finish before the application starts and then stop. Use a sidecar when the helper must run for as long as the application does. If the helper only needs the same host and volume but no ordering, a second ordinary container works. Do not put the helper into the application image just to save a container, because then the two cannot be updated or restarted separately.
+
+You now know how a Pod can be assembled from containers with separate jobs. Remove the test Pods:
+
+```sh
+kubectl -n starfleet delete pod builder stuck shipper
+```
 
 ## Common pitfalls
 
 > [!WARNING]
-> A regular init container must finish; a sidecar supports ongoing execution. Containers in the same Pod do not automatically share their image filesystems.
+> - **Reading the application log when an init container fails.** The application never started. Read the init container log with `-c`.
+> - **Expecting init containers to run in parallel.** They run one after another, each to completion.
+> - **Using an init container for a long-running helper.** Init containers must exit. Use a sidecar.
+> - **Forgetting the shared volume.** Containers see each other files only through a volume that both mount.

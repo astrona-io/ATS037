@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# Workload Controllers Lab (LAB). Graded against the live cluster. UNTESTED: built from static checks only.
+apiVersion: astrona.io/v1
+metadata:
+  name: ats-037-lab-010-04
+  docs:
+    prerequisites: prerequisites.md
+    question: question.md
+    solution: solution.md
+
+runtime:
+  type: kind
+  kind:
+    image: kindest/node:v1.35.8
+    preloadImages:
+      - ghcr.io/stefanprodan/podinfo:6.15.0
+      - mccutchen/go-httpbin:2.25.0
+      - curlimages/curl:8.22.0
+      - busybox:1.37.0
+    nodes:
+      workers: 1
+
+# Starting state: the faults are left in place on purpose.
+bootstrap:
+  init:
+    - name: seed-cluster
+      description: Create the starting state
+      type: file
+      source: bootstrap/01-seed-cluster.sh
+
+# Applied only by `astrona test`: the reference solution.
+testing:
+  init:
+    - name: apply-solution
+      description: Apply the reference solution
+      type: file
+      source: solution/apply.sh
+
+validation:
+  scripts:
+    - name: hangar-rolling-update
+      description: "hangar uses RollingUpdate with maxSurge 1 and maxUnavailable 0 and all 3 replicas are available"
+      type: file
+      source: validation/validate-hangar-rolling-update.sh
+      hint: "Patch spec.strategy: type RollingUpdate, maxSurge 1, maxUnavailable 0."
+    - name: lookout-on-every-node
+      description: "The DaemonSet lookout runs one ready Pod on every node, including the control plane"
+      type: file
+      source: validation/validate-lookout-on-every-node.sh
+      hint: "Add a toleration for node-role.kubernetes.io/control-plane with effect NoSchedule."
+    - name: nightly-scan-cronjob
+      description: "nightly-scan runs every five minutes, forbids overlap, keeps one successful Job and uses restartPolicy Never"
+      type: file
+      source: validation/validate-nightly-scan-cronjob.sh
+      hint: "Set schedule */5 * * * *, concurrencyPolicy Forbid and successfulJobsHistoryLimit 1."
+    - name: one-shot-job
+      description: "one-shot has 2 completions, backoffLimit 1, restartPolicy Never and has finished"
+      type: file
+      source: validation/validate-one-shot-job.sh
+      hint: "Set completions 2, backoffLimit 1 and restartPolicy Never, then wait for the Job to complete."
+
+teardown:
+  keepCluster: false

@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# Working With A Cluster Lab (LAB). Graded against the live cluster. UNTESTED: built from static checks only.
+apiVersion: astrona.io/v1
+metadata:
+  name: ats-037-lab-020-01
+  docs:
+    prerequisites: prerequisites.md
+    question: question.md
+    solution: solution.md
+
+runtime:
+  type: kind
+  kind:
+    image: kindest/node:v1.35.8
+    preloadImages:
+      - ghcr.io/stefanprodan/podinfo:6.15.0
+      - mccutchen/go-httpbin:2.25.0
+      - curlimages/curl:8.22.0
+      - busybox:1.37.0
+
+# Starting state: the faults are left in place on purpose.
+bootstrap:
+  init:
+    - name: seed-cluster
+      description: Create the starting state
+      type: file
+      source: bootstrap/01-seed-cluster.sh
+
+# Applied only by `astrona test`: the reference solution.
+testing:
+  init:
+    - name: apply-solution
+      description: Apply the reference solution
+      type: file
+      source: solution/apply.sh
+
+validation:
+  scripts:
+    - name: evidence-configmap
+      description: "ConfigMap evidence records the context, a pull-failure reason and the failing image"
+      type: file
+      source: validation/validate-evidence-configmap.sh
+      hint: "Read the context with kubectl config current-context and the reason and image from the console Pod and Deployment."
+    - name: console-running
+      description: "console uses the podinfo 6.15.0 image and its replica is available"
+      type: file
+      source: validation/validate-console-running.sh
+      hint: "Use kubectl set image on deployment/console."
+    - name: leftover-orphaned
+      description: "leftover is deleted, its ReplicaSet has no owner and its Pods keep running"
+      type: file
+      source: validation/validate-leftover-orphaned.sh
+      hint: "Delete the Deployment with --cascade=orphan."
+
+teardown:
+  keepCluster: false

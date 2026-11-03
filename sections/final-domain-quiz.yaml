@@ -1,0 +1,569 @@
+# Final domain knowledge check across all four sections.
+schema_version: 1
+kind: question_bank
+id: ats037-final
+course_id: ATS037
+exam_code: KCNA
+status: draft
+provenance: Original practice material written for this course; not official exam
+  questions.
+scope:
+  type: domain
+  id: kubernetes-fundamentals
+  title: Kubernetes Fundamentals
+questions:
+- id: ats037-final-q01
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Identify the control plane components and their responsibilities.
+  source_readings:
+  - sections/section-010/module-01/course-01-control-plane-and-worker-responsibilities.md
+  prompt: An accepted Deployment request needs containers started on a worker. Which
+    component actually starts the container processes?
+  options:
+  - id: a
+    text: etcd.
+    explanation: It stores cluster state rather than running workloads.
+  - id: b
+    text: The node container runtime, coordinated by the kubelet.
+    explanation: The kubelet manages assigned Pods and asks the runtime to execute
+      containers.
+  - id: c
+    text: The scheduler.
+    explanation: It assigns a suitable node rather than executing containers.
+  correct_option: b
+  explanation: The kubelet manages assigned Pods and asks the runtime to execute containers.
+- id: ats037-final-q02
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Distinguish namespaced resources from cluster resources.
+  source_readings:
+  - sections/section-010/module-02/course-01-objects-scope-and-identity.md
+  prompt: Two teams need Deployments named scout in different resource scopes. Which
+    arrangement permits this?
+  options:
+  - id: a
+    text: Give both the same namespace and identical names.
+    explanation: That would refer to one Deployment identity in that scope.
+  - id: b
+    text: Create a new node for each name.
+    explanation: Node placement does not change namespaced naming rules.
+  - id: c
+    text: Place each Deployment in a different namespace.
+    explanation: Deployment names are unique within their namespaced resource scope.
+  correct_option: c
+  explanation: Deployment names are unique within their namespaced resource scope.
+- id: ats037-final-q03
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Distinguish Pod phases from container states and waiting reasons.
+  source_readings:
+  - sections/section-010/module-03/course-01-shared-resources-and-lifecycle-evidence.md
+  prompt: A tool displays CrashLoopBackOff for a container. What does it describe?
+  options:
+  - id: a
+    text: Repeated restarts with a retry delay.
+    explanation: It is a container waiting reason reflecting backoff, not a separate
+      Pod phase.
+  - id: b
+    text: A successful Pod completion phase.
+    explanation: Successful completion is different from repeated crashes.
+  - id: c
+    text: A scheduler scoring preference.
+    explanation: Container restart backoff occurs after execution attempts, not during
+      node scoring.
+  correct_option: a
+  explanation: It is a container waiting reason reflecting backoff, not a separate
+    Pod phase.
+- id: ats037-final-q04
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Trace a workload request from storage to container execution.
+  source_readings:
+  - sections/section-010/module-01/course-01-control-plane-and-worker-responsibilities.md
+  prompt: A Pod stays Pending and its `spec.nodeName` field is empty. Which step of
+    the request path has not happened yet?
+  options:
+  - id: a
+    text: The scheduler has not assigned a node to the Pod.
+    explanation: Correct. The scheduler writes the chosen node name into the Pod.
+      Until it does, no kubelet picks the Pod up.
+  - id: b
+    text: The kubelet has not pulled the image.
+    explanation: The kubelet acts only after a node is assigned, so an empty node
+      name comes earlier.
+  - id: c
+    text: The container runtime has not started the container.
+    explanation: The runtime acts on the kubelet's request, which also needs an assigned
+      node.
+  - id: d
+    text: The API server has not stored the Pod.
+    explanation: The Pod is listed, so the API server and etcd already stored it.
+  correct_option: a
+  explanation: The scheduler assigns the node. An empty `spec.nodeName` means that
+    step is pending, so no kubelet has started any container.
+- id: ats037-final-q05
+  type: single_choice
+  difficulty: intermediate
+  learning_objective: Compare readiness, liveness and startup probes.
+  source_readings:
+  - sections/section-010/module-03/course-02-restart-policies-probes-and-replacement.md
+  prompt: The readiness probe of one Pod behind a Service starts failing, and its
+    liveness probe still passes. What happens?
+  options:
+  - id: a
+    text: The kubelet restarts the container.
+    explanation: A failing liveness probe causes a restart, not a failing readiness
+      probe.
+  - id: b
+    text: The Pod is deleted and replaced by its controller.
+    explanation: A failing readiness probe does not delete the Pod.
+  - id: c
+    text: The Pod stays running but is removed from the Service endpoints until the
+      probe passes again.
+    explanation: Correct. Readiness decides whether the Pod receives traffic. The
+      container keeps running.
+  - id: d
+    text: The Pod phase changes to Failed.
+    explanation: The phase does not change because of a readiness result.
+  correct_option: c
+  explanation: Readiness controls traffic. Liveness controls restarts. A failing readiness
+    probe only removes the Pod from the endpoints of its Services.
+- id: ats037-final-q06
+  type: single_choice
+  difficulty: intermediate
+  learning_objective: Compare a Job with a CronJob.
+  source_readings:
+  - sections/section-010/module-04/course-02-completion-tasks-and-scheduled-tasks.md
+  prompt: Which values of `restartPolicy` can the Pod template of a Job use?
+  options:
+  - id: a
+    text: Always or Never.
+    explanation: Always is not allowed in a Job, because the Pod must be able to finish.
+  - id: b
+    text: OnFailure or Never.
+    explanation: Correct. A Job needs Pods that can end, so only OnFailure and Never
+      are valid.
+  - id: c
+    text: Only Always.
+    explanation: Always would restart a finished container forever, so a Job rejects
+      it.
+  - id: d
+    text: Any value, because a Job ignores the field.
+    explanation: The API server validates the field and rejects Always.
+  correct_option: b
+  explanation: A Job runs Pods to completion, so its template must use OnFailure or
+    Never.
+- id: ats037-final-q07
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain how a kubeconfig context selects a cluster and identity.
+  source_readings:
+  - sections/section-020/module-01/course-01-contexts-and-reading-cluster-evidence.md
+  prompt: A user changes kubeconfig context from development to production. What has
+    changed?
+  options:
+  - id: a
+    text: All running Pods have moved clusters.
+    explanation: Local client configuration does not migrate workloads.
+  - id: b
+    text: The default cluster and credential selection for client requests.
+    explanation: A context associates a cluster, a user entry and an optional namespace.
+  - id: c
+    text: The user's authorization grants on the server.
+    explanation: Selecting credentials does not rewrite server permission policy.
+  correct_option: b
+  explanation: A context associates a cluster, a user entry and an optional namespace.
+- id: ats037-final-q08
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain how configuration changes reach a running container.
+  source_readings:
+  - sections/section-020/module-02/course-01-configmaps-secrets-and-configuration-delivery.md
+  prompt: A running container reads its log level from an environment variable. The
+    source ConfigMap changes. What should be expected?
+  options:
+  - id: a
+    text: Kubernetes edits the process environment immediately.
+    explanation: Environment values are established at startup.
+  - id: b
+    text: The ConfigMap change rebuilds the image.
+    explanation: Runtime configuration and image building are separate operations.
+  - id: c
+    text: The existing process keeps the startup value unless it is restarted or otherwise
+      reconfigured.
+    explanation: A source update does not rewrite a running process's environment.
+  correct_option: c
+  explanation: A source update does not rewrite a running process's environment.
+- id: ats037-final-q09
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Compare ResourceQuota with LimitRange.
+  source_readings:
+  - sections/section-020/module-02/course-02-requests-limits-and-namespace-budgets.md
+  prompt: A namespace needs a total resource budget and default container resource
+    settings. Which pair fits?
+  options:
+  - id: a
+    text: ResourceQuota for the aggregate budget and LimitRange for defaults and constraints.
+    explanation: The resources address namespace totals and individual resource settings
+      respectively.
+  - id: b
+    text: LimitRange to create new physical nodes and ResourceQuota to encrypt data.
+    explanation: Neither resource performs those infrastructure or security jobs.
+  - id: c
+    text: A namespace alone, because it supplies both automatically.
+    explanation: Namespacing does not automatically set budgets or resource defaults.
+  correct_option: a
+  explanation: The resources address namespace totals and individual resource settings
+    respectively.
+- id: ats037-final-q10
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain how configuration changes reach a running container.
+  source_readings:
+  - sections/section-020/module-02/course-01-configmaps-secrets-and-configuration-delivery.md
+  prompt: What protects the values in a Secret that was created with default settings?
+  options:
+  - id: a
+    text: They are encrypted with a key that only the application holds.
+    explanation: The API does not encrypt Secret values for the application by default.
+  - id: b
+    text: They are only base64 encoded, so access control must protect them.
+    explanation: Correct. Base64 is an encoding, not encryption. RBAC and optional
+      encryption at rest protect the data.
+  - id: c
+    text: They are hashed, so nobody can read them back.
+    explanation: A hash cannot be reversed, but Secret values are readable by users
+      with access.
+  - id: d
+    text: They are removed from the API after the Pod reads them.
+    explanation: Secrets stay stored until deleted.
+  correct_option: b
+  explanation: Secret data is base64 encoded. Anyone who can read the Secret object
+    can decode it, so RBAC and encryption at rest matter.
+- id: ats037-final-q11
+  type: single_choice
+  difficulty: intermediate
+  learning_objective: Relate placement and disruption handling to application availability.
+  source_readings:
+  - sections/section-020/module-03/course-01-operating-responsibilities-and-availability.md
+  prompt: What does a PodDisruptionBudget limit?
+  options:
+  - id: a
+    text: The number of Pods that a node crash can remove.
+    explanation: A crash is an involuntary disruption. A budget does not stop it.
+  - id: b
+    text: The CPU that Pods of an application may use.
+    explanation: Resource limits do that, not a disruption budget.
+  - id: c
+    text: The number of voluntary evictions, such as a node drain, that may take Pods
+      of an application away at one time.
+    explanation: Correct. A drain asks the eviction API, and the budget makes it wait
+      or refuse when too few Pods would remain.
+  - id: d
+    text: The number of rolling update steps.
+    explanation: The update strategy controls rollout speed.
+  correct_option: c
+  explanation: A PodDisruptionBudget protects availability during voluntary disruptions
+    such as drains. It cannot prevent crashes.
+- id: ats037-final-q12
+  type: single_choice
+  difficulty: intermediate
+  learning_objective: Describe how custom resources and Operators extend Kubernetes.
+  source_readings:
+  - sections/section-020/module-03/course-02-custom-resources-and-operators.md
+  prompt: A team applies a CustomResourceDefinition and then creates one object of
+    the new kind. Nothing else happens. Why?
+  options:
+  - id: a
+    text: The definition only registers the new API type. A controller must watch
+      the objects and act on them.
+    explanation: Correct. A custom resource is stored data. An Operator is the controller
+      that gives it behavior.
+  - id: b
+    text: Custom resources can only be created by the scheduler.
+    explanation: Users create custom resources through the API like any other object.
+  - id: c
+    text: The API server runs custom resources as Pods automatically.
+    explanation: The API server never runs workloads.
+  - id: d
+    text: The definition must be applied to every namespace before use.
+    explanation: A CustomResourceDefinition is a cluster resource.
+  correct_option: a
+  explanation: A CRD adds an API type and storage. Behavior comes from a controller,
+    which is what an Operator packages.
+- id: ats037-final-q13
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Compare required placement rules with preferences.
+  source_readings:
+  - sections/section-030/module-01/course-01-filtering-scoring-and-placement-rules.md
+  prompt: A Pod prefers zone A but all suitable capacity is in zone B. Its rule is
+    preferred affinity. What can happen?
+  options:
+  - id: a
+    text: It ignores every resource request.
+    explanation: Preferences do not bypass resource eligibility checks.
+  - id: b
+    text: The scheduler may place it in zone B.
+    explanation: Preferences influence scores without making zone A mandatory.
+  - id: c
+    text: It must remain Pending forever solely because zone A is unavailable.
+    explanation: A preferred rule is not a hard placement restriction.
+  correct_option: b
+  explanation: Preferences influence scores without making zone A mandatory.
+- id: ats037-final-q14
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Predict the effect of taints and tolerations.
+  source_readings:
+  - sections/section-030/module-01/course-02-taints-tolerations-and-eligibility.md
+  prompt: A taint should evict already running Pods that do not tolerate it. Which
+    effect expresses that behavior?
+  options:
+  - id: a
+    text: NoSchedule.
+    explanation: It blocks new placement but does not by itself evict existing Pods.
+  - id: b
+    text: PreferNoSchedule.
+    explanation: It is a soft placement preference rather than the requested eviction
+      behavior.
+  - id: c
+    text: NoExecute.
+    explanation: It can affect existing Pods as well as new placement.
+  correct_option: c
+  explanation: It can affect existing Pods as well as new placement.
+- id: ats037-final-q15
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Distinguish replica changes from node capacity changes.
+  source_readings:
+  - sections/section-030/module-02/course-02-replica-autoscaling-and-availability.md
+  prompt: An HPA requests ten replicas but only six fit. Which separate mechanism
+    can increase worker capacity?
+  options:
+  - id: a
+    text: Node autoscaling, if suitable infrastructure and configuration are available.
+    explanation: Replica scaling and node provisioning are separate operations.
+  - id: b
+    text: The HPA itself must install four worker nodes.
+    explanation: The HPA adjusts replicas rather than directly creating nodes.
+  - id: c
+    text: Changing the Service name.
+    explanation: Service identity does not add compute capacity.
+  correct_option: a
+  explanation: Replica scaling and node provisioning are separate operations.
+- id: ats037-final-q16
+  type: single_choice
+  difficulty: intermediate
+  learning_objective: Predict the effect of taints and tolerations.
+  source_readings:
+  - sections/section-030/module-01/course-02-taints-tolerations-and-eligibility.md
+  prompt: A node gets the taint `reserved=science:NoExecute`. A running Pod has no
+    matching toleration. What happens to it?
+  options:
+  - id: a
+    text: Nothing. Only new Pods are affected.
+    explanation: That describes NoSchedule. NoExecute also affects running Pods.
+  - id: b
+    text: The Pod is evicted from the node.
+    explanation: Correct. NoExecute removes running Pods that do not tolerate the
+      taint.
+  - id: c
+    text: The Pod is frozen but keeps its place.
+    explanation: Kubernetes has no such state.
+  - id: d
+    text: The taint is removed from the node.
+    explanation: Pods cannot remove taints.
+  correct_option: b
+  explanation: NoSchedule blocks new placement. NoExecute also evicts running Pods
+    that lack a matching toleration.
+- id: ats037-final-q17
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain why a resource request can leave a Pod Pending.
+  source_readings:
+  - sections/section-030/module-02/course-01-capacity-and-pending-pods.md
+  prompt: Which value does the scheduler compare with the free capacity of a node
+    when it places a Pod?
+  options:
+  - id: a
+    text: The memory and CPU that the Pod used last hour.
+    explanation: The scheduler does not use measured usage.
+  - id: b
+    text: The limits of the containers.
+    explanation: Limits are enforced by the node, not used for placement.
+  - id: c
+    text: The requests of the containers.
+    explanation: Correct. The scheduler adds up requests and compares them with the
+      allocatable capacity that is not yet requested.
+  - id: d
+    text: The size of the container image.
+    explanation: Image size does not take part in the capacity check.
+  correct_option: c
+  explanation: Requests reserve capacity for scheduling. A request larger than any
+    node can offer leaves the Pod Pending with an Insufficient cpu or Insufficient
+    memory event.
+- id: ats037-final-q18
+  type: single_choice
+  difficulty: intermediate
+  learning_objective: Distinguish replica changes from node capacity changes.
+  source_readings:
+  - sections/section-030/module-02/course-02-replica-autoscaling-and-availability.md
+  prompt: A HorizontalPodAutoscaler shows `<unknown>` as its CPU target value. Which
+    cause is most likely in a cluster that has no metrics server?
+  options:
+  - id: a
+    text: The Deployment has too many replicas.
+    explanation: The replica count does not hide the metric.
+  - id: b
+    text: No component supplies the resource metrics, so the autoscaler cannot compute
+      utilization.
+    explanation: Correct. The autoscaler reads resource metrics from the metrics API,
+      which a metrics server provides.
+  - id: c
+    text: The Pods have no labels.
+    explanation: Labels select the Pods but do not provide metrics.
+  - id: d
+    text: The scheduler has not run.
+    explanation: The scheduler does not supply metrics.
+  correct_option: b
+  explanation: Resource-based autoscaling needs the metrics API and a CPU request
+    on the containers. Without metrics the value stays unknown.
+- id: ats037-final-q19
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Describe how namespaces and cgroups affect Linux processes.
+  source_readings:
+  - sections/section-040/module-01/course-01-processes-namespaces-and-control-groups.md
+  prompt: Which Linux mechanism constrains resource use for groups of container processes?
+  options:
+  - id: a
+    text: Container image tags.
+    explanation: They identify artifact references rather than resource enforcement.
+  - id: b
+    text: Control groups, or cgroups.
+    explanation: They account for and constrain resource usage.
+  - id: c
+    text: Kubernetes namespaces alone.
+    explanation: They scope API resources rather than enforcing Linux process usage
+      limits.
+  correct_option: b
+  explanation: They account for and constrain resource usage.
+- id: ats037-final-q20
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Distinguish a tag from a digest.
+  source_readings:
+  - sections/section-040/module-02/course-01-layers-tags-and-digests.md
+  prompt: A release needs precise artifact identity even if a tag is later moved.
+    Which reference is most suitable?
+  options:
+  - id: a
+    text: The tag latest.
+    explanation: Tags can be reassigned to different content.
+  - id: b
+    text: The Pod's display name.
+    explanation: A workload name does not identify its image bytes.
+  - id: c
+    text: An image digest.
+    explanation: It identifies content through a cryptographic hash.
+  correct_option: c
+  explanation: It identifies content through a cryptographic hash.
+- id: ats037-final-q21
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain command, arguments and environment settings at startup.
+  source_readings:
+  - sections/section-040/module-03/course-01-startup-configuration-and-application-state.md
+  prompt: A container command array contains shell redirection but does not invoke
+    a shell. Why might it fail?
+  options:
+  - id: a
+    text: Kubernetes does not automatically interpret the array as shell syntax.
+    explanation: Shell operators require a deliberately invoked shell or another interpreter.
+  - id: b
+    text: Every container command implicitly uses a shell.
+    explanation: The array can execute a program directly.
+  - id: c
+    text: Changing a ConfigMap automatically rebuilds the executable.
+    explanation: Configuration updates do not rebuild images or alter command interpretation.
+  correct_option: a
+  explanation: Shell operators require a deliberately invoked shell or another interpreter.
+- id: ats037-final-q22
+  type: single_choice
+  difficulty: intermediate
+  learning_objective: Distinguish a tag from a digest.
+  source_readings:
+  - sections/section-040/module-02/course-01-layers-tags-and-digests.md
+  prompt: A team wants every cluster to run exactly the same image content, even if
+    someone later pushes a new image under the same tag. What should the Pod specification
+    use?
+  options:
+  - id: a
+    text: The tag `latest`.
+    explanation: "`latest` is a tag that can point to new content at any time."
+  - id: b
+    text: A digest, such as `repository@sha256:...`.
+    explanation: Correct. A digest identifies the content and cannot point to different
+      content.
+  - id: c
+    text: A shorter tag.
+    explanation: Any tag can be moved.
+  - id: d
+    text: "`imagePullPolicy: Never`."
+    explanation: This only stops pulls. A node without the image would fail.
+  correct_option: b
+  explanation: A tag is a movable name. A digest is a hash of the manifest and always
+    names the same content.
+- id: ats037-final-q23
+  type: single_choice
+  difficulty: beginner
+  learning_objective: Explain command, arguments and environment settings at startup.
+  source_readings:
+  - sections/section-040/module-03/course-01-startup-configuration-and-application-state.md
+  prompt: A Pod specification sets `command` and `args` for a container. Which image
+    settings do they replace?
+  options:
+  - id: a
+    text: "`command` replaces ENTRYPOINT and `args` replaces CMD."
+    explanation: Correct. A field that you leave out keeps the value from the image.
+  - id: b
+    text: "`command` replaces CMD and `args` replaces ENTRYPOINT."
+    explanation: The two are the other way around.
+  - id: c
+    text: Both replace the environment variables of the image.
+    explanation: Environment variables are set by `env`.
+  - id: d
+    text: They replace the base image.
+    explanation: The image is chosen by the `image` field.
+  correct_option: a
+  explanation: In a Pod specification `command` overrides the image ENTRYPOINT and
+    `args` overrides the image CMD.
+- id: ats037-final-q24
+  type: single_choice
+  difficulty: intermediate
+  learning_objective: Distinguish init containers from sidecar patterns.
+  source_readings:
+  - sections/section-040/module-03/course-02-init-containers-and-sidecar-patterns.md
+  prompt: An init container of a Pod exits with a non-zero code. What happens to the
+    application containers?
+  options:
+  - id: a
+    text: They start anyway, because init containers are optional.
+    explanation: Init containers must succeed before the application containers start.
+  - id: b
+    text: They do not start while the init container keeps failing. The kubelet retries
+      the init container.
+    explanation: Correct. Init containers run one after another and each must complete
+      successfully first.
+  - id: c
+    text: They start in parallel and restart the init container.
+    explanation: The order is strict.
+  - id: d
+    text: The Pod is moved to another node immediately.
+    explanation: The kubelet retries on the same node.
+  correct_option: b
+  explanation: Application containers wait for all init containers to finish successfully.
+    A repeated failure shows as an Init status on the Pod.

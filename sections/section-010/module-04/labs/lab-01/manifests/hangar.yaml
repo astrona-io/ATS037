@@ -1,0 +1,31 @@
+# The fault is left in place on purpose: the update strategy is Recreate.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hangar
+  namespace: starfleet
+  labels:
+    app: hangar
+spec:
+  replicas: 3
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hangar
+  template:
+    metadata:
+      labels:
+        app: hangar
+    spec:
+      containers:
+        - name: hangar
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          ports:
+            - name: http
+              containerPort: 9898
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 3

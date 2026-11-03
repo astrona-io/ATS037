@@ -26,6 +26,6 @@ Verified against the [official objectives](https://training.linuxfoundation.org/
 | 040 / 02 | Images And Registries | 2 | Explain image layers and the container writable layer.; Distinguish a tag from a digest.; Describe build, publication and image pull stages.; Identify common causes of image pull failure. |
 | 040 / 03 | Container Application Design | 2 | Explain command, arguments and environment settings at startup.; Choose durable storage for application state.; Distinguish init containers from sidecar patterns.; Explain graceful termination and safe workload replacement. |
 
-Every section begins with an introduction. Every module ends with a summary before the next module. YAML question banks follow the final module summary of each section; a domain review bank closes the course. They are indexed separately for future application integration.
+Every section begins with an introduction. Every module has a Playground, a graded lab and a summary. Each section ends with a capstone lab and a `quiz.yaml` knowledge check, and `sections/final-domain-quiz.yaml` closes the domain.
 
-This course has no labs or playgrounds, as requested by the maintainer. All material is readable without a cluster. Technical content remains draft until review; no runtime execution or lab validation is claimed.
+Playgrounds, labs, capstones and quizzes are now in scope. The labs are UNTESTED: they were built without running them and checked statically only. Technical content remains draft until review.

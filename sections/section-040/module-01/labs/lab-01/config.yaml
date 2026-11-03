@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# Containers And Isolation Lab (LAB). Graded against the live cluster. UNTESTED: built from static checks only.
+apiVersion: astrona.io/v1
+metadata:
+  name: ats-037-lab-040-01
+  docs:
+    prerequisites: prerequisites.md
+    question: question.md
+    solution: solution.md
+
+runtime:
+  type: kind
+  kind:
+    image: kindest/node:v1.35.8
+    preloadImages:
+      - ghcr.io/stefanprodan/podinfo:6.15.0
+      - mccutchen/go-httpbin:2.25.0
+      - curlimages/curl:8.22.0
+      - busybox:1.37.0
+
+# Starting state: the faults are left in place on purpose.
+bootstrap:
+  init:
+    - name: seed-cluster
+      description: Create the starting state
+      type: file
+      source: bootstrap/01-seed-cluster.sh
+
+# Applied only by `astrona test`: the reference solution.
+testing:
+  init:
+    - name: apply-solution
+      description: Apply the reference solution
+      type: file
+      source: solution/apply.sh
+
+validation:
+  scripts:
+    - name: shared-process-namespace
+      description: "Pod inspector has containers app and tools, both running, with shareProcessNamespace true"
+      type: file
+      source: validation/validate-shared-process-namespace.sh
+      hint: "Set shareProcessNamespace: true in the Pod spec."
+    - name: hog-stable
+      description: "hog keeps its image, has a memory limit of at least 128Mi and 1 ready replica"
+      type: file
+      source: validation/validate-hog-stable.sh
+      hint: "Read lastState.terminated.reason, then raise resources.limits.memory."
+    - name: runtime-facts
+      description: "ConfigMap runtime-facts records the runtime name and the kernel version of the node"
+      type: file
+      source: validation/validate-runtime-facts.sh
+      hint: "Read status.nodeInfo with kubectl get nodes -o jsonpath."
+
+teardown:
+  keepCluster: false

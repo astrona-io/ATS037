@@ -1,0 +1,35 @@
+# Fault left in place on purpose: the init container copies a file from a path that does not exist, so it fails and the application never starts.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broken-init
+  namespace: starfleet
+  labels:
+    app: broken-init
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: broken-init
+  template:
+    metadata:
+      labels:
+        app: broken-init
+    spec:
+      volumes:
+        - name: shared
+          emptyDir: {}
+      initContainers:
+        - name: setup
+          image: busybox:1.37.0
+          command: ["sh", "-c", "cp /seed/input.txt /shared/input.txt"]
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+      containers:
+        - name: app
+          image: busybox:1.37.0
+          command: ["sh", "-c", "cat /shared/input.txt; sleep 3600"]
+          volumeMounts:
+            - name: shared
+              mountPath: /shared

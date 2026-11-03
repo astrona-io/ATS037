@@ -5,42 +5,124 @@ exam_objectives:
 ---
 # Custom Resources And Operators
 
-A team wants Kubernetes to manage a database using a resource named `Database`. A CustomResourceDefinition (CRD) extends the Kubernetes API with a new resource type and its schema. Creating a CRD makes that type available; it does not install database software or implement database behavior by itself.
+A team runs a database. Creating a replica, running a backup and promoting a standby take careful steps in a fixed order. The built-in resources do not know these steps. Kubernetes lets a team add its own resource types to the API and run a controller that acts on them. This part explains custom resources, the controller behind them and the Operator pattern.
 
-A custom resource is an instance of the new type. It can describe a requested database version or replica count. A custom controller watches those instances and reconciles actual resources toward their requested state. An Operator is an approach that uses controllers and custom resources to encode application-specific operational knowledge.
+## CustomResourceDefinition
+
+The Kubernetes API is extensible. A CustomResourceDefinition, written CRD, is an object that registers a new resource type with the API server. After it is created, the API server serves the new type like a built-in one: it has a URL, it is stored in `etcd`, `kubectl get` lists it, and role-based access control applies to it. An object of the new type is called a custom resource. The CRD is the type, and the custom resource is the instance, in the same way that the Pod kind is the type and a single Pod is the instance.
+
+The CRD holds an OpenAPI schema that describes the fields. The API server validates every custom resource against it and rejects one that does not match, for example a missing required field or a number below the minimum.
+
+Save this as `crd-patrol.yaml`:
+
+```yaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: patrols.starfleet.example.com
+spec:
+  group: starfleet.example.com
+  scope: Namespaced
+  names:
+    plural: patrols
+    singular: patrol
+    kind: Patrol
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: ["route", "ships"]
+              properties:
+                route:
+                  type: string
+                ships:
+                  type: integer
+                  minimum: 1
+```
+
+Apply it:
+
+<!-- astrona:playground:renew -->
+
+```sh
+kubectl apply -f crd-patrol.yaml
+```
+
+Then check the result:
+
+```sh
+kubectl get crd patrols.starfleet.example.com
+kubectl api-resources --api-group=starfleet.example.com
+kubectl explain patrol.spec
+```
+
+The API server now knows the type. The `api-resources` command lists `patrols` with the kind `Patrol`, and `explain` prints the fields from the schema.
+
+## Create and validate a custom resource
+
+Save this as `patrol-alpha.yaml`:
+
+```yaml
+apiVersion: starfleet.example.com/v1
+kind: Patrol
+metadata:
+  name: alpha
+  namespace: starfleet
+spec:
+  route: outer-ring
+  ships: 2
+```
+
+Apply it, then try a version that breaks the schema:
+
+```sh
+kubectl apply -f patrol-alpha.yaml
+kubectl -n starfleet get patrols
+kubectl -n starfleet patch patrol alpha --type=merge -p '{"spec":{"ships":0}}'
+```
+
+The listing shows `alpha`. The patch is rejected with an error that says `ships` must be at least 1, because the schema sets `minimum: 1`. The cluster checks the object before it stores it.
+
+A custom resource alone does nothing. It is stored data. Nothing creates a Pod or a ship because a Patrol exists, until a controller acts on it.
+
+## Controllers and Operators
+
+A custom controller is a program that watches objects of a type through the API and works to make the real world match them. It is the same control loop as the built-in controllers. A controller for `Patrol` would read each Patrol, create the workloads it needs and write the result into the `status` of the Patrol. It usually runs as a Deployment in the cluster.
 
 ```mermaid
 flowchart TB
-    D["CustomResourceDefinition"] -->|"registers type"| A["API server"]
-    U["Custom resource"] -->|"stored in"| A
-    A -->|"observed state"| C["Operator controller"]
-    C -->|"reconcile"| W["Application resources"]
+    U["User applies a Patrol"] --> API["API server stores it"]
+    API --> C["Custom controller watches Patrols"]
+    C -->|"creates and updates"| W["Deployments, Services, Jobs"]
+    C -->|"writes status"| API
 ```
-The definition provides the API type, and the controller provides the behavior.
+The controller reads the custom resource and creates ordinary resources. It then reports back into the custom resource.
 
-An Operator may automate upgrades, backups or recovery if its implementation supports them. Those capabilities are not automatic properties of every Operator. The controller needs permissions to manage the objects it creates, and its own availability and compatibility affect how reliably it can reconcile changes.
+An Operator is a custom controller that encodes the operating knowledge of one application: install, scale, back up, upgrade and recover. A database Operator reads a `Database` custom resource and performs the ordered steps that a human administrator would perform. The user writes the desired state in one object, and the Operator keeps it true. Operators are a pattern that combines a CRD with a controller. The CRD alone is not an Operator.
 
-Distinguish desired-state acceptance from implemented behavior. A custom resource can exist while its controller is absent or failing. In that case, status may not progress and application objects may never appear. The API server can validate a resource schema without understanding whether an application-specific upgrade is safe.
+## Aggregated APIs and choosing an extension
 
-Evaluate an extension through its API contract, controller behavior and operating requirements. For a scenario where a new resource is accepted but nothing happens, check whether a responsible controller exists and is working. For an unknown resource type, check whether the definition has been installed.
+A CRD is the simplest extension, because the API server stores and serves the data. An API aggregation layer lets a separate API server handle a group of resources with its own logic. The metrics API of a cluster is served this way. Use a CRD when you need to store declarative objects, and add a controller when something must happen in response.
 
-## What A Database Operator Must Implement
+You now know how the API is extended. Remove the test objects:
 
-A custom `Database` resource might request version two, three members and a backup schedule. The CRD validates the structure of those fields. It can require an allowed version value or replica range, but schema validation alone cannot perform a safe database upgrade or verify an application-consistent backup.
+```sh
+kubectl -n starfleet delete patrol alpha
+kubectl delete crd patrols.starfleet.example.com
+```
 
-The controller must translate that intent into actual operations. It might create StatefulSets, claims and Services, observe member readiness and update resource status. Application-specific logic determines upgrade order, compatibility checks and recovery actions. A controller that only creates Pods should not be assumed to implement every advanced database operation named in marketing material.
-
-Status should provide useful evidence about that reconciliation. A condition might indicate that members are ready or that an upgrade is blocked by a compatibility check. The custom resource's generation can identify the desired revision, while the controller's observed revision indicates how far processing has reached. Creating the object and seeing a useful completed status remain separate events.
-
-## Permissions And Controller Failure
-
-The Operator runs as a workload or other process with credentials. It needs appropriate permissions to watch its custom resources and manage the child objects involved. Permission to create the custom resource for a user does not automatically grant its controller the permissions it needs. The identity and permissions of each participant matter.
-
-If the controller stops, existing database processes may continue while new changes and recovery actions stall. If the CRD is missing, the API may reject the resource type before any controller can see an instance. If the controller has insufficient permissions, objects can exist without expected children being created.
-
-Diagnose the boundary supported by evidence: type registration, accepted custom intent, controller execution, child-resource reconciliation or application health. This sequence explains both the power and limits of Operators without treating an extension as automatic operational expertise.
+Deleting a CRD deletes every custom resource of that type with it.
 
 ## Common pitfalls
 
 > [!WARNING]
-> Installing a CRD registers a resource type. The controller must be installed and functioning to turn a custom resource into application behavior.
+> - **Expecting a custom resource to do something by itself.** A controller must act on it.
+> - **Deleting a CRD without checking the instances.** All custom resources of that type are deleted with it.
+> - **Calling every CRD an Operator.** An Operator is a controller that carries application operating knowledge.
+> - **Skipping the schema.** Without validation, a mistyped field is stored silently.

@@ -203,20 +203,28 @@ The course covers **Kubernetes Fundamentals**, worth **44%** of
 **Kubernetes and Cloud Native Associate (KCNA)**. It is part of **ATP008**.
 The official objectives are listed in `astrona.yaml` and mapped in `CURRICULUM.md`.
 
-### Reading-only scope
+### Scope: labs, playgrounds, capstones and quizzes
 
-The maintainer approved the lesson plan, asked for deeper teaching, and explicitly
-requested **no labs or playgrounds**. That instruction overrides shared examples
-about hands-on environments, graded labs and playground markers. Do not create
-runtime configurations, executable exercises or playground lifecycle markers.
-The course must be usable without a cluster or installed command-line tools.
+This course was first written as reading only. The maintainer has since
+approved a full build, so **Playgrounds, graded labs, capstones and
+`quiz.yaml` knowledge checks are now in scope** and follow the shared rules
+above. Each module has a Playground, a graded lab and a landing page that ends
+with `<!-- astrona:playground -->`. Each section has a capstone lab under
+`sections/section-0X0/capstone/labs/lab-01` and a `quiz.yaml`. The domain ends
+with `sections/final-domain-quiz.yaml`. Keep the existing readings and
+question banks and extend them.
+
+The labs were built without running them. Mark each lab README as UNTESTED, check
+configuration with `astrona validate -c`, shell scripts with `bash -n` and YAML
+with `ruby -ryaml`, and never claim runtime verification until `astrona test`
+has passed.
 
 ### Teaching structure and depth
 
 Every section begins with its own introduction and measurable learning outcomes.
 Every module contains a landing page, developed teaching lessons and a final
 `# Summary` page. Put the summary after all its lessons and before the next
-module. This reading-only summary has no playground destruction marker.
+module. The last line of the summary is `<!-- astrona:playground:destroy -->`.
 
 Explain mechanisms, responsible components, realistic examples and the limits
 of each claim. Include worked reasoning and relevant failure cases. Avoid thin
@@ -232,7 +240,7 @@ and teaching order in `assessments/index.yaml`. Each bank has 5–15 questions w
 stable IDs, one correct option, per-option feedback, a measurable learning
 objective and source reading paths for author traceability.
 
-Do not register YAML as a Markdown reading. A future renderer consumes the bank
+Do not register a question bank as a Markdown reading. Section `quiz.yaml` files and `sections/final-domain-quiz.yaml` are registered as `type: quiz` entries. A future renderer consumes the bank
 index and presents the checkpoint after its declared reading, preserving bank
 order when several share an anchor. Do not expose answer keys before submission
 in a production quiz interface. These public banks are practice material, not
@@ -248,4 +256,4 @@ The ATP registration remains draft until publication is approved.
 Primary author sources are recorded in `SOURCES.md`. The objective list was
 verified on 2026-10-10. Detailed reading expansions were written on 2026-10-11.
 Validate manifest paths, summary ordering, curriculum coverage and question
-contracts. Do not claim runtime verification for a reading-only course.
+contracts. Do not claim runtime verification until the labs have been run with `astrona test`.

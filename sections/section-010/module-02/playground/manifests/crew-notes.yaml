@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crew-notes
+  namespace: starfleet
+  annotations:
+    contact: ops
+data:
+  note: "Annotations are not labels."

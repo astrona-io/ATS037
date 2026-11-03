@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: caravan
+  namespace: starfleet
+  labels:
+    app: caravan
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: caravan
+  template:
+    metadata:
+      labels:
+        app: caravan
+    spec:
+      containers:
+        - name: caravan
+          image: ghcr.io/stefanprodan/podinfo:6.15.0

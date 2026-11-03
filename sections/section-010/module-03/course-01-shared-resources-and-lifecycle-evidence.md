@@ -5,35 +5,95 @@ exam_objectives:
 ---
 # Shared Resources And Lifecycle Evidence
 
-The `scout` application runs beside a helper that reads shared files. Kubernetes can place both containers in one Pod when their lifecycles and location need to stay together. A Pod is a group of containers scheduled as one unit on one node. It is not a container image or a long-lived machine.
+When a Pod has two containers, one writes a file and the other reads it. For that to work, the two containers must see the same files, and they must be able to reach each other on the local network. This part explains what the containers of one Pod share and what they do not, then teaches how to read the three kinds of status that describe a Pod: its phase, its container states and its waiting reasons.
 
-Containers in a Pod share its network namespace, including its network address and port space. They can communicate through the local loopback address. Two containers cannot independently listen on the same address and port in that shared space. They can also share volumes explicitly mounted into both containers, but their image filesystems are not automatically the same filesystem.
+## What the containers of a Pod share
 
-A Pod's phase is a broad lifecycle category: Pending, Running, Succeeded, Failed or Unknown. Pending can include time spent scheduling and preparing containers. Running means the Pod has been bound to a node, its containers have been created, and at least one is running or starting or restarting. It does not prove that every container is ready to serve requests.
+A Pod is a group of one or more containers that the scheduler places on one node together. The kubelet starts them with these shared resources:
 
-Individual containers have Waiting, Running or Terminated states. Waiting reasons can explain an image pull problem. A Terminated state can include an exit code and reason. A displayed reason such as `CrashLoopBackOff` describes repeated restarts with a delay; it is not a separate Pod phase.
+- One network namespace. The Pod has one IP address, and its containers use the same ports and can reach each other on `localhost`. Two containers in one Pod cannot listen on the same port.
+- The volumes that the Pod declares. Each container chooses which volumes to mount and where.
+- Optionally the process namespace, when `shareProcessNamespace` is set to `true`.
 
-Conditions add more detail, such as whether the Pod is scheduled or ready. Distinguish these observations when assessing a symptom. A Running Pod with a failing readiness check is different from a Pending Pod that has not obtained a node.
+The containers do not share a file system. Each container has its own root file system from its own image. A file that one container writes into its own file system is invisible to the others, unless it is written to a mounted volume.
 
-The useful question is which transition has failed: placement, preparation, container execution or readiness. Read the broad phase together with the container state and conditions rather than treating one status word as the complete diagnosis.
+```mermaid
+flowchart TB
+    subgraph POD["Pod relay"]
+        W["container: writer"]
+        R["container: reader"]
+        V["volume: shared (emptyDir)"]
+    end
+    W -->|"writes /shared/log"| V
+    V -->|"read /shared/log"| R
+```
+Both containers mount the same volume, and both use the same Pod IP address.
 
-## Interpreting Several States Together
+## Try it: two containers, one volume
 
-Consider a Pod with a main web container and a helper. The main process runs, but the helper is waiting because its image cannot be pulled. A broad Running phase can coexist with incomplete container readiness. The Pod's phase summarizes its lifecycle; the list of container states describes each process. Always identify which container produced a waiting or termination reason.
+The playground already runs a Pod named `relay`. It has a container `writer` that appends a line to `/shared/log` every few seconds, and a container `reader` that follows the same file. Both mount an `emptyDir` volume. An `emptyDir` volume is a directory that Kubernetes creates empty when the Pod starts on a node and removes when the Pod is deleted.
 
-A successful finite task looks different. When its required containers finish successfully and are not expected to restart, the Pod can reach Succeeded. A container exiting with an error can contribute to Failed under the applicable lifecycle rules. Long-running controllers, however, commonly use restart behavior that produces repeated attempts instead of a final task result. The intended workload lifetime matters when interpreting the same exit observation.
+<!-- astrona:playground:renew -->
 
-Conditions refine the summary. A scheduled condition indicates that node assignment has occurred. A readiness condition concerns eligibility to serve. The presence of one condition does not imply the other. An assigned Pod can remain unready while initialization, container preparation or health checks fail.
+```sh
+kubectl -n starfleet get pod relay
+kubectl -n starfleet logs relay -c reader
+```
 
-## Shared Resources Have Explicit Boundaries
+The first command shows `READY 2/2`, which means two of two containers are ready. The second prints the lines that the `reader` container reads from the file that `writer` produces. Because a Pod with more than one container needs a container name for `logs` and `exec`, the option `-c` is required.
 
-Network sharing means the web container and helper use the same Pod address and can reach each other through loopback. It also means port choices must avoid conflicts. If both try to listen on the same address and port, one may fail even though they use different images. Putting processes in separate containers does not give them independent port spaces inside a normal Pod.
+Now prove that the root file systems are separate:
 
-Filesystem sharing is more selective. Each container starts with its own image filesystem, and only explicitly shared mounts expose common data. A helper expecting the main process's file needs the same volume mounted at a meaningful location. Sharing a Pod neither makes every directory common nor makes its temporary data durable after deletion.
+```sh
+kubectl -n starfleet exec relay -c writer -- ls /shared
+kubectl -n starfleet exec relay -c writer -- ls /etc/hostname
+kubectl -n starfleet exec relay -c reader -- hostname
+kubectl -n starfleet exec relay -c writer -- hostname
+```
 
-A good explanation therefore combines the workload's expected lifetime, each container's state, Pod conditions and the specific shared resource. That detail prevents a single status word from hiding the actual stage or boundary involved.
+The `/shared` directory contains the file in both containers. The two `hostname` commands print the same name, because the containers share the network namespace and the Pod hostname. Files outside the volume belong to one container only.
+
+## Three kinds of status
+
+Three fields describe where a Pod is in its life, and they answer different questions. Mixing them up is the most common mistake in diagnosis.
+
+The Pod phase is a coarse summary in `status.phase`. `Pending` means the Pod is accepted but one or more containers are not running yet: it has no node, or its images are still being pulled. `Running` means the Pod is bound to a node and at least one container is running or restarting. `Succeeded` means all containers ended with exit code 0 and will not restart. `Failed` means all containers ended and at least one failed. `Unknown` means the node cannot be reached.
+
+The container state is more detailed, one per container, in `status.containerStatuses[].state`. It has three forms. `Waiting` means the container is not running yet and a `reason` says why. `Running` means it has started. `Terminated` means it ended and records an exit code and a reason.
+
+A waiting reason names the cause, for example `ContainerCreating`, `ImagePullBackOff`, `ErrImagePull`, `CrashLoopBackOff` or `CreateContainerConfigError`. `CrashLoopBackOff` is not a phase. The Pod phase of a crashing Pod is still `Running`, because the kubelet keeps restarting the container.
+
+## Read the evidence for a failing Pod
+
+The playground Pod `crashy` exits after five seconds. Read its three kinds of status:
+
+```sh
+kubectl -n starfleet get pod crashy
+kubectl -n starfleet get pod crashy -o jsonpath='{.status.phase}{"\n"}'
+kubectl -n starfleet get pod crashy -o jsonpath='{.status.containerStatuses[0].state}{"\n"}{.status.containerStatuses[0].lastState}{"\n"}'
+kubectl -n starfleet describe pod crashy
+```
+
+The first command shows a rising `RESTARTS` count and the status `CrashLoopBackOff` after a few restarts. The second prints the phase `Running`. The third prints the current state, usually `waiting` with the reason `CrashLoopBackOff`, and the last state, which is `terminated` with an exit code. The end of `describe` lists events from the kubelet that name each start and back-off.
+
+Now look at the Pod `once`, which uses `restartPolicy: Never`:
+
+```sh
+kubectl -n starfleet get pod once
+```
+
+Its status is `Completed` and its phase is `Succeeded`. The container ended with exit code 0, and the kubelet did not restart it.
+
+## Choose the evidence for the question
+
+A question about where a Pod is placed is answered by `spec.nodeName`. A question about why a container does not run is answered by the container state and its reason, then by the events. A question about what the application printed is answered by `kubectl logs`, using `--previous` to read the logs of the last terminated container. A phase alone is never enough, because a `Running` Pod can contain a container that crashes in a loop.
+
+You now know what the containers share and which field answers which question. The open question is what makes a container restart, what makes a Pod receive traffic, and when the Pod itself must be replaced.
 
 ## Common pitfalls
 
 > [!WARNING]
-> Running does not mean Ready. `CrashLoopBackOff` is a container waiting reason displayed by tools, not a Pod phase.
+> - **Expecting containers to share a root file system.** Only mounted volumes are shared.
+> - **Calling `CrashLoopBackOff` a phase.** It is a waiting reason. The phase is still `Running`.
+> - **Forgetting `-c` on a multi-container Pod.** `logs` and `exec` need a container name, or they pick a default and print a notice.
+> - **Reading `Running` as healthy.** Read the container state and the ready count.

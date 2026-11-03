@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# Operating Kubernetes Lab (LAB). Graded against the live cluster. UNTESTED: built from static checks only.
+apiVersion: astrona.io/v1
+metadata:
+  name: ats-037-lab-020-03
+  docs:
+    prerequisites: prerequisites.md
+    question: question.md
+    solution: solution.md
+
+runtime:
+  type: kind
+  kind:
+    image: kindest/node:v1.35.8
+    preloadImages:
+      - ghcr.io/stefanprodan/podinfo:6.15.0
+      - mccutchen/go-httpbin:2.25.0
+      - curlimages/curl:8.22.0
+      - busybox:1.37.0
+    nodes:
+      workers: 1
+
+# Starting state: the faults are left in place on purpose.
+bootstrap:
+  init:
+    - name: seed-cluster
+      description: Create the starting state
+      type: file
+      source: bootstrap/01-seed-cluster.sh
+
+# Applied only by `astrona test`: the reference solution.
+testing:
+  init:
+    - name: apply-solution
+      description: Apply the reference solution
+      type: file
+      source: solution/apply.sh
+
+validation:
+  scripts:
+    - name: convoy-pdb
+      description: "convoy-budget selects app convoy and keeps at least 2 Pods available"
+      type: file
+      source: validation/validate-convoy-pdb.sh
+      hint: "minAvailable 2 and a selector on app=convoy."
+    - name: worker-cordoned
+      description: "The worker node is unschedulable, the control plane node is not, and Pods still run on the worker"
+      type: file
+      source: validation/validate-worker-cordoned.sh
+      hint: "Use kubectl cordon on the worker node, not drain."
+    - name: mission-resource
+      description: "Mission survey-run has objective map the nebula and crewSize 4"
+      type: file
+      source: validation/validate-mission-resource.sh
+      hint: "Read the CRD for group and version, then apply a Mission."
+
+teardown:
+  keepCluster: false

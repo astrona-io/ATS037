@@ -1,9 +1,9 @@
-# Reading-only course. YAML assessments are registered separately in assessments/index.yaml.
+# Course manifest. Playgrounds are not listed here; they are launched from the <!-- astrona:playground --> markers in the readings.
 training:
   id: ATS037
   title: 'KCNA: Kubernetes Fundamentals'
-  description: Concept lessons, diagrams and original scenario assessments covering every published objective
-    in this KCNA domain. No labs or playgrounds.
+  description: Concept lessons, Playgrounds, graded labs, capstones and quizzes covering
+    every published objective in this KCNA domain.
   certification:
     name: Kubernetes and Cloud Native Associate
     code: KCNA
@@ -18,7 +18,8 @@ training:
 modules:
 - id: module-intro
   title: Introduction
-  description: Audience, learning approach, reading requirements and contribution process.
+  description: Audience, learning approach, reading requirements and contribution
+    process.
   content:
   - type: reading
     title: Introduction
@@ -34,8 +35,9 @@ modules:
     path: sections/intro/course-03-how-this-course-is-made.md
 - id: module-010
   title: Kubernetes Core Concepts
-  description: Concept lessons and scenario reasoning for Kubernetes Core Concepts.
-  maturity: alpha
+  description: Concept lessons, Playgrounds, graded labs and a capstone for Kubernetes
+    Core Concepts.
+  status: alpha
   content:
   - type: reading
     title: 'Kubernetes Core Concepts: Introduction'
@@ -50,6 +52,33 @@ modules:
     title: Desired State And Reconciliation
     path: sections/section-010/module-01/course-02-desired-state-and-reconciliation.md
   - type: reading
+    title: Question
+    path: sections/section-010/module-01/labs/lab-01/question.md
+  - type: lab
+    title: Cluster Architecture Lab
+    path: sections/section-010/module-01/labs/lab-01
+    difficulty: intermediate
+    estimated_duration: 15m
+    topic: cluster-architecture
+    task_kind: investigate
+    tags:
+    - control-plane
+    - etcd
+    - kube-apiserver
+    - kube-scheduler
+    - kubelet
+    - deployment
+    - replicas
+    learning_goals:
+    - Find the Pods that run the four control plane components and record their names
+    - Scale a Deployment through its specification and wait for the ready replicas
+    - Read the node that runs a Pod from the Pod object
+    resources:
+    - name: Kubernetes components
+      url: https://kubernetes.io/docs/concepts/overview/components/
+    - name: Controllers
+      url: https://kubernetes.io/docs/concepts/architecture/controller/
+  - type: reading
     title: Summary
     path: sections/section-010/module-01/course-03-summary.md
   - type: reading
@@ -61,6 +90,35 @@ modules:
   - type: reading
     title: Labels, Selectors And Ownership
     path: sections/section-010/module-02/course-02-labels-selectors-and-ownership.md
+  - type: reading
+    title: Question
+    path: sections/section-010/module-02/labs/lab-01/question.md
+  - type: lab
+    title: Kubernetes API And Resources Lab
+    path: sections/section-010/module-02/labs/lab-01
+    difficulty: intermediate
+    estimated_duration: 15m
+    topic: kubernetes-api
+    task_kind: troubleshoot
+    tags:
+    - labels
+    - selectors
+    - annotations
+    - ownerreferences
+    - service
+    - endpointslice
+    - api-resources
+    learning_goals:
+    - Repair a Service selector that matches no Pods without changing the Pods
+    - Add a label through the Pod template and an annotation on the Deployment
+    - Read an owner kind, an apiVersion and a resource scope from the API
+    resources:
+    - name: Kubernetes objects
+      url: https://kubernetes.io/docs/concepts/overview/working-with-objects/
+    - name: Labels and selectors
+      url: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+    - name: Owners and dependents
+      url: https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/
   - type: reading
     title: Summary
     path: sections/section-010/module-02/course-03-summary.md
@@ -74,6 +132,34 @@ modules:
     title: Restart Policies, Probes And Replacement
     path: sections/section-010/module-03/course-02-restart-policies-probes-and-replacement.md
   - type: reading
+    title: Question
+    path: sections/section-010/module-03/labs/lab-01/question.md
+  - type: lab
+    title: Pods And Their Lifecycle Lab
+    path: sections/section-010/module-03/labs/lab-01
+    difficulty: intermediate
+    estimated_duration: 20m
+    topic: pods
+    task_kind: troubleshoot
+    tags:
+    - pod
+    - probes
+    - livenessprobe
+    - readinessprobe
+    - startupprobe
+    - emptydir
+    - restartpolicy
+    learning_goals:
+    - Read container state and events to find a wrong liveness path and a wrong readiness
+      port
+    - Add a startup probe that tolerates a slow start
+    - Build a Pod whose two containers share an emptyDir volume
+    resources:
+    - name: Pod lifecycle
+      url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+    - name: Configure liveness, readiness and startup probes
+      url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+  - type: reading
     title: Summary
     path: sections/section-010/module-03/course-03-summary.md
   - type: reading
@@ -86,12 +172,71 @@ modules:
     title: Completion Tasks And Scheduled Tasks
     path: sections/section-010/module-04/course-02-completion-tasks-and-scheduled-tasks.md
   - type: reading
+    title: Question
+    path: sections/section-010/module-04/labs/lab-01/question.md
+  - type: lab
+    title: Workload Controllers Lab
+    path: sections/section-010/module-04/labs/lab-01
+    difficulty: intermediate
+    estimated_duration: 25m
+    topic: workloads
+    task_kind: build
+    tags:
+    - deployment
+    - rollingupdate
+    - daemonset
+    - cronjob
+    - job
+    - taint
+    - toleration
+    learning_goals:
+    - Replace a Recreate strategy with a rolling update that keeps all replicas available
+    - Run a DaemonSet on every node by tolerating the control plane taint
+    - Configure a CronJob that forbids overlapping runs and a Job with set completions
+    resources:
+    - name: Deployments
+      url: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+    - name: DaemonSet
+      url: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
+    - name: CronJob
+      url: https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/
+  - type: reading
     title: Summary
     path: sections/section-010/module-04/course-03-summary.md
+  - type: reading
+    title: Question
+    path: sections/section-010/capstone/labs/lab-01/question.md
+  - type: lab
+    title: Core Concepts Capstone
+    path: sections/section-010/capstone/labs/lab-01
+    difficulty: advanced
+    estimated_duration: 35m
+    topic: core-concepts
+    task_kind: build
+    tags:
+    - deployment
+    - replicaset
+    - labels
+    - readiness
+    - daemonset
+    - cronjob
+    learning_goals:
+    - Create a Deployment with the right labels and trace its owner chain
+    - Repair a Pod whose readiness probe fails
+    - Create a DaemonSet and a CronJob
+    resources:
+    - name: Workloads
+      url: https://kubernetes.io/docs/concepts/workloads/
+    - name: Liveness, Readiness, and Startup Probes
+      url: https://kubernetes.io/docs/concepts/configuration/liveness-readiness-startup-probes/
+  - type: quiz
+    title: 'Knowledge Check: Kubernetes Core Concepts'
+    path: sections/section-010/quiz.yaml
+    pass_score: 70
 - id: module-020
   title: Administration
-  description: Concept lessons and scenario reasoning for Administration.
-  maturity: alpha
+  description: Concept lessons, Playgrounds, graded labs and a capstone for Administration.
+  status: alpha
   content:
   - type: reading
     title: 'Administration: Introduction'
@@ -106,6 +251,32 @@ modules:
     title: Declarative Changes And Deletion
     path: sections/section-020/module-01/course-02-declarative-changes-and-deletion.md
   - type: reading
+    title: Question
+    path: sections/section-020/module-01/labs/lab-01/question.md
+  - type: lab
+    title: Working With A Cluster Lab
+    path: sections/section-020/module-01/labs/lab-01
+    difficulty: intermediate
+    estimated_duration: 20m
+    topic: administration
+    task_kind: troubleshoot
+    tags:
+    - kubectl
+    - kubeconfig
+    - events
+    - imagepullbackoff
+    - cascade
+    - garbage-collection
+    learning_goals:
+    - Read the waiting reason and the failing image from the evidence commands
+    - Fix a failing image reference on a Deployment
+    - Delete a Deployment with the orphan mode so its Pods keep running
+    resources:
+    - name: Organizing cluster access using kubeconfig files
+      url: https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/
+    - name: Garbage collection
+      url: https://kubernetes.io/docs/concepts/architecture/garbage-collection/
+  - type: reading
     title: Summary
     path: sections/section-020/module-01/course-03-summary.md
   - type: reading
@@ -117,6 +288,35 @@ modules:
   - type: reading
     title: Requests, Limits And Namespace Budgets
     path: sections/section-020/module-02/course-02-requests-limits-and-namespace-budgets.md
+  - type: reading
+    title: Question
+    path: sections/section-020/module-02/labs/lab-01/question.md
+  - type: lab
+    title: Configuration And Resource Management Lab
+    path: sections/section-020/module-02/labs/lab-01
+    difficulty: intermediate
+    estimated_duration: 20m
+    topic: configuration
+    task_kind: build
+    tags:
+    - configmap
+    - secret
+    - env
+    - volume
+    - requests
+    - limits
+    - resourcequota
+    learning_goals:
+    - Create a ConfigMap and a Secret and deliver them as a variable and as files
+    - Set resource requests and a memory limit on a Deployment
+    - Create a ResourceQuota that caps Pods and ConfigMaps
+    resources:
+    - name: ConfigMaps
+      url: https://kubernetes.io/docs/concepts/configuration/configmap/
+    - name: Secrets
+      url: https://kubernetes.io/docs/concepts/configuration/secret/
+    - name: Resource Quotas
+      url: https://kubernetes.io/docs/concepts/policy/resource-quotas/
   - type: reading
     title: Summary
     path: sections/section-020/module-02/course-03-summary.md
@@ -130,12 +330,72 @@ modules:
     title: Custom Resources And Operators
     path: sections/section-020/module-03/course-02-custom-resources-and-operators.md
   - type: reading
+    title: Question
+    path: sections/section-020/module-03/labs/lab-01/question.md
+  - type: lab
+    title: Operating Kubernetes Lab
+    path: sections/section-020/module-03/labs/lab-01
+    difficulty: intermediate
+    estimated_duration: 20m
+    topic: operations
+    task_kind: build
+    tags:
+    - pdb
+    - cordon
+    - drain
+    - crd
+    - customresource
+    - operator
+    learning_goals:
+    - Create a PodDisruptionBudget that keeps replicas available
+    - Cordon a worker node without draining it
+    - Create a custom resource from the schema of a CustomResourceDefinition
+    resources:
+    - name: Specifying a Disruption Budget
+      url: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+    - name: Safely drain a node
+      url: https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/
+    - name: Custom Resources
+      url: https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/
+  - type: reading
     title: Summary
     path: sections/section-020/module-03/course-03-summary.md
+  - type: reading
+    title: Question
+    path: sections/section-020/capstone/labs/lab-01/question.md
+  - type: lab
+    title: Administration Capstone
+    path: sections/section-020/capstone/labs/lab-01
+    difficulty: advanced
+    estimated_duration: 40m
+    topic: administration
+    task_kind: build
+    tags:
+    - configmap
+    - resources
+    - resourcequota
+    - pdb
+    - cordon
+    - troubleshooting
+    learning_goals:
+    - Diagnose and fix an image pull failure
+    - Deliver a ConfigMap value to a Pod and set resources on a Deployment
+    - Create a ResourceQuota and a PodDisruptionBudget and cordon a node
+    resources:
+    - name: ConfigMaps
+      url: https://kubernetes.io/docs/concepts/configuration/configmap/
+    - name: Specifying a Disruption Budget
+      url: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+    - name: Safely Drain a Node
+      url: https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/
+  - type: quiz
+    title: 'Knowledge Check: Administration'
+    path: sections/section-020/quiz.yaml
+    pass_score: 70
 - id: module-030
   title: Scheduling
-  description: Concept lessons and scenario reasoning for Scheduling.
-  maturity: alpha
+  description: Concept lessons, Playgrounds, graded labs and a capstone for Scheduling.
+  status: alpha
   content:
   - type: reading
     title: 'Scheduling: Introduction'
@@ -150,6 +410,33 @@ modules:
     title: Taints, Tolerations And Eligibility
     path: sections/section-030/module-01/course-02-taints-tolerations-and-eligibility.md
   - type: reading
+    title: Question
+    path: sections/section-030/module-01/labs/lab-01/question.md
+  - type: lab
+    title: Scheduling Decisions Lab
+    path: sections/section-030/module-01/labs/lab-01
+    difficulty: intermediate
+    estimated_duration: 20m
+    topic: scheduling
+    task_kind: troubleshoot
+    tags:
+    - scheduler
+    - nodeselector
+    - labels
+    - taints
+    - tolerations
+    - pending
+    learning_goals:
+    - Read FailedScheduling events and label a node so that a Pending workload can
+      run
+    - Taint a node with NoSchedule
+    - Combine a toleration with a node selector to run Pods only on a tainted node
+    resources:
+    - name: Assigning Pods to Nodes
+      url: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+    - name: Taints and Tolerations
+      url: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  - type: reading
     title: Summary
     path: sections/section-030/module-01/course-03-summary.md
   - type: reading
@@ -162,12 +449,69 @@ modules:
     title: Replica Autoscaling And Availability
     path: sections/section-030/module-02/course-02-replica-autoscaling-and-availability.md
   - type: reading
+    title: Question
+    path: sections/section-030/module-02/labs/lab-01/question.md
+  - type: lab
+    title: Placement And Scaling Lab
+    path: sections/section-030/module-02/labs/lab-01
+    difficulty: intermediate
+    estimated_duration: 20m
+    topic: scheduling
+    task_kind: troubleshoot
+    tags:
+    - capacity
+    - requests
+    - pending
+    - hpa
+    - autoscaling
+    learning_goals:
+    - Read a FailedScheduling event and the allocatable capacity of a node
+    - Fix a Pod request that fits no node and scale the Deployment
+    - Create an autoscaling/v2 HorizontalPodAutoscaler with a CPU target
+    resources:
+    - name: Resource Management for Pods and Containers
+      url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    - name: Horizontal Pod Autoscaling
+      url: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  - type: reading
     title: Summary
     path: sections/section-030/module-02/course-03-summary.md
+  - type: reading
+    title: Question
+    path: sections/section-030/capstone/labs/lab-01/question.md
+  - type: lab
+    title: Scheduling Capstone
+    path: sections/section-030/capstone/labs/lab-01
+    difficulty: advanced
+    estimated_duration: 40m
+    topic: scheduling
+    task_kind: troubleshoot
+    tags:
+    - scheduler
+    - nodeselector
+    - taints
+    - tolerations
+    - requests
+    - hpa
+    learning_goals:
+    - Fix a node selector problem by labeling a node
+    - Reserve a node with a taint and run a Deployment on it with a toleration
+    - Fix an oversized request and create a HorizontalPodAutoscaler
+    resources:
+    - name: Assigning Pods to Nodes
+      url: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+    - name: Taints and Tolerations
+      url: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+    - name: Horizontal Pod Autoscaling
+      url: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  - type: quiz
+    title: 'Knowledge Check: Scheduling'
+    path: sections/section-030/quiz.yaml
+    pass_score: 70
 - id: module-040
   title: Containerization
-  description: Concept lessons and scenario reasoning for Containerization.
-  maturity: alpha
+  description: Concept lessons, Playgrounds, graded labs and a capstone for Containerization.
+  status: alpha
   content:
   - type: reading
     title: 'Containerization: Introduction'
@@ -182,6 +526,32 @@ modules:
     title: Runtimes And Kubernetes Integration
     path: sections/section-040/module-01/course-02-runtimes-and-kubernetes-integration.md
   - type: reading
+    title: Question
+    path: sections/section-040/module-01/labs/lab-01/question.md
+  - type: lab
+    title: Containers And Isolation Lab
+    path: sections/section-040/module-01/labs/lab-01
+    difficulty: intermediate
+    estimated_duration: 20m
+    topic: containers
+    task_kind: troubleshoot
+    tags:
+    - containers
+    - namespaces
+    - cgroups
+    - oomkilled
+    - runtime
+    - cri
+    learning_goals:
+    - Create a Pod whose containers share a process namespace
+    - Diagnose an OOMKilled container and raise its memory limit
+    - Read the container runtime and kernel version of a node
+    resources:
+    - name: Container Runtimes
+      url: https://kubernetes.io/docs/setup/production-environment/container-runtimes/
+    - name: Share Process Namespace between Containers in a Pod
+      url: https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/
+  - type: reading
     title: Summary
     path: sections/section-040/module-01/course-03-summary.md
   - type: reading
@@ -194,17 +564,103 @@ modules:
     title: From Build To Image Pull
     path: sections/section-040/module-02/course-02-from-build-to-image-pull.md
   - type: reading
+    title: Question
+    path: sections/section-040/module-02/labs/lab-01/question.md
+  - type: lab
+    title: Images And Registries Lab
+    path: sections/section-040/module-02/labs/lab-01
+    difficulty: intermediate
+    estimated_duration: 20m
+    topic: images
+    task_kind: troubleshoot
+    tags:
+    - images
+    - registry
+    - tag
+    - digest
+    - imagepullpolicy
+    - imagepullbackoff
+    learning_goals:
+    - Diagnose ErrImagePull from the Pod events and fix the image reference
+    - Set the image pull policy of a container explicitly
+    - Read the digest of the image that a running container uses
+    resources:
+    - name: Images
+      url: https://kubernetes.io/docs/concepts/containers/images/
+    - name: Pull an Image from a Private Registry
+      url: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+  - type: reading
     title: Summary
     path: sections/section-040/module-02/course-03-summary.md
   - type: reading
     title: Container Application Design
     path: sections/section-040/module-03/course.md
   - type: reading
-    title: Startup Configuration And Application State
+    title: Startup, Configuration And Application State
     path: sections/section-040/module-03/course-01-startup-configuration-and-application-state.md
   - type: reading
     title: Init Containers And Sidecar Patterns
     path: sections/section-040/module-03/course-02-init-containers-and-sidecar-patterns.md
   - type: reading
+    title: Question
+    path: sections/section-040/module-03/labs/lab-01/question.md
+  - type: lab
+    title: Container Application Design Lab
+    path: sections/section-040/module-03/labs/lab-01
+    difficulty: intermediate
+    estimated_duration: 25m
+    topic: containers
+    task_kind: build
+    tags:
+    - init-container
+    - sidecar
+    - emptydir
+    - command
+    - pod
+    learning_goals:
+    - Hand a file from an init container to an application through an emptyDir volume
+    - Create a Pod with a native sidecar
+    - Diagnose and repair a failing init container
+    resources:
+    - name: Init Containers
+      url: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+    - name: Sidecar Containers
+      url: https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/
+  - type: reading
     title: Summary
     path: sections/section-040/module-03/course-03-summary.md
+  - type: reading
+    title: Question
+    path: sections/section-040/capstone/labs/lab-01/question.md
+  - type: lab
+    title: Containerization Capstone
+    path: sections/section-040/capstone/labs/lab-01
+    difficulty: advanced
+    estimated_duration: 40m
+    topic: containers
+    task_kind: troubleshoot
+    tags:
+    - oomkilled
+    - image-pull
+    - init-container
+    - sidecar
+    - digest
+    learning_goals:
+    - Diagnose and fix an OOM kill and a failed image pull
+    - Build a Pod with an init container, a native sidecar and an application
+    - Read the container runtime and an image digest from the live cluster
+    resources:
+    - name: Resource Management for Pods and Containers
+      url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    - name: Images
+      url: https://kubernetes.io/docs/concepts/containers/images/
+    - name: Sidecar Containers
+      url: https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/
+  - type: quiz
+    title: 'Knowledge Check: Containerization'
+    path: sections/section-040/quiz.yaml
+    pass_score: 70
+  - type: quiz
+    title: 'Final Knowledge Check: Kubernetes Fundamentals'
+    path: sections/final-domain-quiz.yaml
+    pass_score: 70

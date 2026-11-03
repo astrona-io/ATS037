@@ -5,33 +5,87 @@ exam_objectives:
 ---
 # Desired State And Reconciliation
 
-The `scout` application needs three replicas, but only two Pods remain after a failure. A replica is one copy of the workload. Kubernetes uses a controller to compare the desired replica count with the current objects and request another Pod. This repeated comparison and correction is reconciliation.
+The `scout` application needs three replicas, but only two Pods remain after a failure. A replica is one copy of the workload. Kubernetes does not need a person to notice this. A controller compares the number of replicas that were requested with the number that exist and creates the missing one. This part explains the fields that hold each side of that comparison, the loop that closes the difference and the limits of the repair.
 
-A resource's specification describes desired behavior. Its status records what the system currently observes. Accepting a resource request does not prove that its containers are ready. The controller, scheduler and kubelet still need to act, and each can encounter conditions that prevent progress. A missing image, insufficient node capacity or an unavailable volume can stop a valid request from becoming a running workload.
+## Specification and status
 
-A Deployment is a resource for managing replaceable application replicas and updates. Its controller manages ReplicaSets, which maintain a requested number of Pods. A ReplicaSet controller responds to the missing `scout` Pod by creating a replacement object. The scheduler assigns that object to a node, and the node's kubelet runs it. The replacement is a new Pod with a new identity, even when it serves the same application.
+Most Kubernetes resources have two top-level fields that matter here. The `spec` field holds the desired state: what the author asks for. The `status` field holds the observed state: what the controllers and the kubelet report. Users write `spec`. Components write `status`. A request that changes `status` through the normal API does not change the real world.
 
-Reconciliation is continuous, but it is not instantaneous or a guarantee of application correctness. An application can return incorrect results while every Pod appears healthy. Controllers also cannot repair a missing external dependency unless a controller explicitly manages it. Desired state must describe something the available system can achieve.
+You can read both sides on the playground. Run these commands to see the requested and the reported replica counts of the `scout` Deployment.
 
-For a scenario question, identify the desired value, the observed value and the controller responsible for closing the difference. If a Deployment asks for three replicas and only two exist, the replica controller needs to act. If three Pods exist but one cannot start, inspect the node and startup dependencies instead.
+<!-- astrona:playground:renew -->
 
-## Reconciliation Through A Failure Timeline
+```sh
+kubectl -n starfleet get deployment scout -o jsonpath='{.spec.replicas}{"\n"}'
+kubectl -n starfleet get deployment scout -o jsonpath='{.status.readyReplicas}{"\n"}'
+```
 
-Start with a Deployment requesting three replicas and a ReplicaSet that owns three Pod objects. One Pod is deleted. The ReplicaSet controller eventually observes that only two managed Pods remain and creates another. That new Pod first exists as an API object, then needs a scheduling assignment, node preparation and a running container.
+The first command prints the desired count from `spec`. The second prints how many replicas the Pods report as ready, from `status`. When the Deployment is healthy, the two numbers match. When they differ, something between the accepted request and a ready container has not finished.
 
-Object count and serving capacity therefore can disagree during recovery. The new Pod may bring the object count back to three while only two replicas can accept requests. If its image cannot be downloaded, creating still more replacement objects does not repair image access. The controller has performed one responsibility successfully while another component remains blocked.
+A Deployment is a resource for managing replaceable application replicas and updates. It owns ReplicaSets, and each ReplicaSet owns Pods. Accepting the Deployment request proves only that the object was valid and stored. The ReplicaSet controller, the scheduler and the kubelet still have to act, and each can be blocked by a missing image, too little node capacity or an unavailable volume.
 
-The control loop can be described with three values: the desired count, the observed managed count and the available count. Desired count answers how many replicas are requested. Observed managed count answers how many relevant objects exist. Available count reflects whether enough replicas meet the controller's availability conditions. Read each value according to its meaning rather than treating all three as synonyms for “running.”
+## The control loop
 
-A direct edit to a managed Pod can also be temporary. If the owning controller later replaces it, the new Pod comes from the controller's template, not necessarily from the manual change. Durable configuration belongs in the object that declares the intended template. This is why repairing an application by editing one disposable replica can produce a surprising regression after replacement.
+A control loop has the same three steps every time. The controller reads the desired state, reads the observed state and takes the smallest action that moves the observed state toward the desired state. Then it repeats. Controllers do not poll the datastore. They use a watch on the API server, so a change to an object wakes the controller that cares about it.
 
-## What Self-Healing Cannot Promise
+```mermaid
+flowchart TB
+    D["Desired state: spec"] --> C["Controller"]
+    O["Observed state: status and objects"] --> C
+    C -->|"create or delete objects"| A["API server"]
+    A --> O
+```
+The controller never edits the result directly. It changes objects, and other components act on them.
 
-Reconciliation works only for the state a controller knows how to manage. A Deployment can request another web process, but it cannot infer which unfinished customer transaction that process held in memory. The application needs durable records and safe retry behavior to handle that loss.
+Apply this to a Deployment. The ReplicaSet controller counts the Pods that match the ReplicaSet and carry its owner reference. If the count is lower than `spec.replicas`, it creates Pod objects. If the count is higher, it deletes Pods. It does not start containers. The new Pod object is a request that the scheduler and the kubelet must still carry out.
 
-Likewise, a controller may continually retry a desired change that the environment cannot satisfy. The repeated effort is useful because a missing dependency might later return, but it is not proof that the request is achievable. A practical explanation identifies the managed state, the corrective action and the dependency that still prevents completion.
+## Watch a controller repair a deletion
+
+Seeing the loop work is the quickest way to remember it. First scale `scout` to three replicas and wait until they are ready.
+
+```sh
+kubectl -n starfleet scale deployment scout --replicas=3
+kubectl -n starfleet rollout status deployment scout
+```
+
+Now list the Pods, pick one name and delete it. In a second terminal, or right after, list the Pods again.
+
+```sh
+kubectl -n starfleet get pods -l app=scout
+kubectl -n starfleet delete pod <POD_NAME>
+kubectl -n starfleet get pods -l app=scout
+```
+
+Replace `<POD_NAME>` with one of the names from the first command. The second listing shows three Pods again. One of them has a new name and a young age. The ReplicaSet controller saw only two matching Pods, so it created a new Pod object, the scheduler assigned a node, and the kubelet started the container. The new Pod is a different object with a new name and a new unique identifier. It does not carry the memory or the address of the deleted Pod.
+
+Last, read what the controller recorded.
+
+```sh
+kubectl -n starfleet get events --sort-by=.metadata.creationTimestamp
+```
+
+The events include a `SuccessfulCreate` event from the `replicaset-controller` for the new Pod. This event names the component that did the work, which is the evidence a scenario question usually asks for.
+
+## Three counts that are not the same
+
+During recovery three values can disagree. The desired count is `spec.replicas`. The observed count is the number of Pod objects the ReplicaSet owns. The available count is the number of replicas that have been ready long enough to receive traffic. A new Pod object raises the observed count at once, but the available count rises only after the container starts and passes its readiness check.
+
+If the image of the replacement cannot be pulled, the observed count is correct and the available count is not. Creating more Pod objects does not fix that, because the controller has done its job and a different component is blocked. In that case the Pod status and its events point to the kubelet and the image registry, not to the ReplicaSet.
+
+A manual change to one Pod is also temporary. If the ReplicaSet replaces that Pod later, the new Pod comes from the Pod template in the Deployment, not from the manual change. Durable changes belong in the Deployment, because its template is the source for every new replica.
+
+## What self-healing does not promise
+
+Reconciliation repairs only the state that a controller knows how to manage. A Deployment can start another web process, but it cannot restore the unfinished transaction that the lost process held in memory. The application needs durable storage and safe retries for that.
+
+A controller also keeps retrying a request that the environment cannot satisfy. The retries are useful because a missing dependency may return, but they are not proof that the request can succeed. To explain a stuck workload, name the desired state, the corrective action and the dependency that still blocks it.
+
+You now know that `spec` and `status` are two sides of a comparison, that controllers close the gap through the API and that the repair has limits.
 
 ## Common pitfalls
 
 > [!WARNING]
-> A successful API request means the requested object was accepted. It does not mean reconciliation has finished or the application works.
+> - **Treating an accepted request as a finished one.** The API server accepts a valid object long before any container runs.
+> - **Editing `status`.** Components own it. Change `spec` instead.
+> - **Fixing a managed Pod by hand.** The next replacement comes from the template, so the fix disappears.
+> - **Reading three Pod objects as three working replicas.** Check the available count, not only the object count.

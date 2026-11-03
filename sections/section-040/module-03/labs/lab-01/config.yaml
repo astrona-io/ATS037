@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# Container Application Design Lab (LAB). Graded against the live cluster. UNTESTED: built from static checks only.
+apiVersion: astrona.io/v1
+metadata:
+  name: ats-037-lab-040-03
+  docs:
+    prerequisites: prerequisites.md
+    question: question.md
+    solution: solution.md
+
+runtime:
+  type: kind
+  kind:
+    image: kindest/node:v1.35.8
+    preloadImages:
+      - ghcr.io/stefanprodan/podinfo:6.15.0
+      - mccutchen/go-httpbin:2.25.0
+      - curlimages/curl:8.22.0
+      - busybox:1.37.0
+
+# Starting state: the faults are left in place on purpose.
+bootstrap:
+  init:
+    - name: seed-cluster
+      description: Create the starting state
+      type: file
+      source: bootstrap/01-seed-cluster.sh
+
+# Applied only by `astrona test`: the reference solution.
+testing:
+  init:
+    - name: apply-solution
+      description: Apply the reference solution
+      type: file
+      source: solution/apply.sh
+
+validation:
+  scripts:
+    - name: init-container
+      description: "Pod builder runs an init container prepare, and app prints mission=ready from the shared volume"
+      type: file
+      source: validation/validate-init-container.sh
+      hint: "Mount the same emptyDir in both containers."
+    - name: native-sidecar
+      description: "Pod shipper has an init container tail with restartPolicy Always, and both containers run"
+      type: file
+      source: validation/validate-native-sidecar.sh
+      hint: "Put restartPolicy: Always on the init container."
+    - name: broken-init-fixed
+      description: "broken-init keeps its init container and volume and has 1 ready replica"
+      type: file
+      source: validation/validate-broken-init-fixed.sh
+      hint: "Read the init container log, then fix its command."
+
+teardown:
+  keepCluster: false

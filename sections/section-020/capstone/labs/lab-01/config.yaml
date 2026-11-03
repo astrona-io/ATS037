@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# Administration Capstone (LAB). Graded against the live cluster. UNTESTED: built from static checks only.
+apiVersion: astrona.io/v1
+metadata:
+  name: ats-037-capstone-020
+  docs:
+    prerequisites: prerequisites.md
+    question: question.md
+    solution: solution.md
+
+runtime:
+  type: kind
+  kind:
+    image: kindest/node:v1.35.8
+    preloadImages:
+      - ghcr.io/stefanprodan/podinfo:6.15.0
+      - mccutchen/go-httpbin:2.25.0
+      - curlimages/curl:8.22.0
+      - busybox:1.37.0
+    nodes:
+      workers: 1
+
+# Starting state: the faults are left in place on purpose.
+bootstrap:
+  init:
+    - name: seed-cluster
+      description: Create the starting state
+      type: file
+      source: bootstrap/01-seed-cluster.sh
+
+# Applied only by `astrona test`: the reference solution.
+testing:
+  init:
+    - name: apply-solution
+      description: Apply the reference solution
+      type: file
+      source: solution/apply.sh
+
+validation:
+  scripts:
+    - name: uplink-fixed
+      description: "uplink uses podinfo:6.15.0 and has 1 ready replica"
+      type: file
+      source: validation/validate-uplink-fixed.sh
+      hint: "Read the event, then kubectl set image."
+    - name: reader-config
+      description: "ship-settings holds LOG_LEVEL=debug and Pod reader takes it as an environment variable"
+      type: file
+      source: validation/validate-reader-config.sh
+      hint: "Use env with valueFrom.configMapKeyRef."
+    - name: engine-room-resources
+      description: "engine-room has requests of 50m and 32Mi and a memory limit of 128Mi"
+      type: file
+      source: validation/validate-engine-room-resources.sh
+      hint: "Patch the resources of the container."
+    - name: outpost-quota
+      description: "ResourceQuota outpost-budget in outpost allows 4 Pods"
+      type: file
+      source: validation/validate-outpost-quota.sh
+      hint: "kubectl create quota with --hard=pods=4."
+    - name: caravan-pdb
+      description: "PodDisruptionBudget caravan keeps 2 Pods of app=caravan available"
+      type: file
+      source: validation/validate-caravan-pdb.sh
+      hint: "minAvailable: 2 with a matchLabels selector."
+    - name: worker-cordoned
+      description: "The worker node is cordoned, the control plane node is not, and caravan keeps 3 ready replicas"
+      type: file
+      source: validation/validate-worker-cordoned.sh
+      hint: "kubectl cordon on the worker node only."
+
+teardown:
+  keepCluster: false

@@ -5,35 +5,91 @@ exam_objectives:
 ---
 # Operating Responsibilities And Availability
 
-A team buys a managed Kubernetes service and assumes it no longer needs to operate its applications. A managed service transfers selected infrastructure responsibilities to a provider, commonly including control plane maintenance. The team still needs to manage workload configuration, permissions, images, application data and the responsibilities specified by its service agreement.
+A team moves its applications to Kubernetes. Six months later a new minor version is out, one node needs a kernel patch, and a disk fails on a machine that stores cluster state. Someone must handle each of these. This part explains who does what, how the control plane stays available, how its data is recovered, and how to take a node out of service without hurting an application.
 
-A self-managed cluster gives the operator more direct control and more work. Installation, component upgrades, certificates, datastore backups and node lifecycle may all belong to the operator. Managed services differ in whether they also manage worker nodes, networking components and upgrade scheduling. The deployment model alone does not answer every responsibility question.
+## Managed and self-managed clusters
 
-High availability means designing a service to keep functioning through expected component failures. Multiple API server instances can reduce dependence on one instance. The etcd datastore uses a quorum, a majority agreement needed for progress. A three-member deployment normally tolerates one member loss; losing two removes the majority. Adding replicas without understanding failure domains can leave them all exposed to one outage.
+In a managed service, the provider runs the control plane: the API server, the scheduler, the controller manager and `etcd`. The provider patches and upgrades them, keeps them available and backs up `etcd`. The customer still owns the workloads, the access rules, the network policies, the resource settings and, in most services, the node pools and when they upgrade. In a self-managed cluster, the team owns everything: the machines, the certificates, the control plane, the upgrades, the backups and the monitoring.
 
-An available control plane does not make every application available. Application replicas, placement across nodes or zones, reachable dependencies and durable data all matter. Conversely, already running containers can continue during some control plane interruptions, while new scheduling and resource changes may fail or stall.
+The split matters in exam scenarios. When the question asks who must back up `etcd`, apply a node operating system patch or size the node pool, check which model it describes. The application layer is always the customer's job.
 
-Backups and replicas also solve different problems. Replication helps tolerate member failures; a backup supports recovery from loss or unwanted changes. Restoring cluster configuration does not automatically restore every application's external database or volume data.
+## Control plane availability
 
-A sensible lifecycle plan covers upgrades, capacity, failure detection, recovery and ownership. Associate-level reasoning asks who performs an operation and what outcome it protects, rather than requiring a production installation procedure.
+A highly available control plane runs several copies of each component. Three or five API servers sit behind a load balancer, and clients use the address of the load balancer. The scheduler and the controller manager run on every control plane node, but only one copy of each is active at a time. They use leader election through a lease object in the API, and a standby takes over when the leader stops renewing the lease.
 
-## A Responsibility Matrix For A Managed Cluster
+`etcd` is different. It keeps one copy of the data on each member and uses the Raft consensus algorithm. A write is committed when a majority of members, called a quorum, accepts it. Three members tolerate the loss of one. Five members tolerate the loss of two. An even number adds cost and gives no extra tolerance, so odd sizes are used. If the quorum is lost, the cluster can no longer accept changes.
 
-Consider a managed service that maintains API servers and etcd but leaves worker nodes to the customer. The provider may handle control plane replacement and selected upgrades. The customer still needs to patch or replace workers, configure workload permissions, maintain images and protect application data. Another managed offering can allocate these responsibilities differently, so the service agreement is part of the operating model.
+```mermaid
+flowchart TB
+    LB["Load balancer"] --> A1["API server 1"]
+    LB --> A2["API server 2"]
+    LB --> A3["API server 3"]
+    A1 --> E["etcd cluster: 3 members, quorum of 2"]
+    A2 --> E
+    A3 --> E
+```
+All API servers serve requests at the same time. Only `etcd` needs a quorum to commit a change.
 
-Separate infrastructure maintenance from application operation. A provider can restore a failed control plane while the application remains unavailable because its database credentials are wrong. A healthy cluster can run an outdated vulnerable image. A highly available API can store a deployment declaration that has no ready application replicas.
+Control plane availability is not application availability. If the control plane stops, Pods that already run keep running, because the kubelet and the container runtime on each node do not need the API server to keep a container alive. What stops is change: no new Pods, no replacement of failed Pods, no scaling and no new scheduling. The reverse also holds. A healthy control plane does not keep an application available if the application runs one replica on a node that fails.
 
-## Quorum And Failure Domains
+## Recovering the datastore
 
-A three-member etcd deployment needs a majority of two members to make normal consensus progress. Losing one leaves that majority; losing two does not. Placing all three members on machines subject to the same power or zone failure can defeat the intended redundancy. Count independent failure domains, not only process replicas.
+`etcd` holds every object of the cluster. A backup of it is a backup of the cluster state, but not of the data in persistent volumes. The usual backup is a snapshot made with `etcdctl snapshot save`, taken on a schedule and stored outside the cluster. To recover, the team restores the snapshot into a new data directory and starts `etcd` from it. Anything created after the snapshot is lost, so the interval between snapshots sets the data loss. Managed services do this for the customer.
 
-API server redundancy has different requirements from datastore consensus. Multiple API servers need an accessible client entry point and working datastore connectivity. Multiple worker nodes need suitable workload spreading and spare resources. The availability of one layer does not establish the availability of another.
+## Upgrades and version skew
 
-Recovery planning adds another dimension. A datastore backup captures cluster records, while application volumes and external databases can need independent backup mechanisms. A recovery objective must identify acceptable lost data and restoration time, then test a procedure that covers all necessary dependencies.
+Kubernetes publishes a new minor version, such as 1.35, about three times a year. The project supports only the most recent minor versions, so clusters must be upgraded on a regular schedule. The version skew policy sets the order. The API server is upgraded first. The controller manager and scheduler may not be newer than the API server. The kubelet may be older than the API server, by up to three minor versions, but never newer. A node upgrade is done one node at a time, with the node drained first.
 
-Managed infrastructure can reduce routine workload, but the application owner still needs to know which failures the provider handles, which remain local and what evidence proves recovery. This is the practical distinction behind managed versus self-managed operation.
+## Node maintenance without downtime
+
+Three commands take a node out of service. `kubectl cordon` marks the node unschedulable: new Pods avoid it and running Pods stay. `kubectl drain` cordons the node and then evicts the Pods, so that controllers recreate them on other nodes. `kubectl uncordon` makes the node schedulable again. Eviction respects a PodDisruptionBudget, an object that states how many Pods of an application must stay available during voluntary disruptions such as a drain.
+
+Save this as `pdb-convoy.yaml`:
+
+```yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: convoy-budget
+  namespace: starfleet
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: convoy
+```
+
+Apply it:
+
+<!-- astrona:playground:renew -->
+
+```sh
+kubectl apply -f pdb-convoy.yaml
+```
+
+Then check the result, and take the worker node out of scheduling:
+
+```sh
+kubectl -n starfleet get pdb convoy-budget
+kubectl get nodes
+kubectl cordon "$(kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}')"
+kubectl get nodes
+```
+
+The budget shows `ALLOWED DISRUPTIONS` of 1, because three Pods exist and two must stay. After the cordon, the worker node shows `SchedulingDisabled` in the status column. The Pods on it keep running. Undo it:
+
+```sh
+kubectl uncordon "$(kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}')"
+```
+
+A PodDisruptionBudget limits only voluntary disruptions. A node that crashes is an involuntary disruption, and no budget prevents it. The way to survive that is more replicas spread over several nodes.
+
+You now know how responsibility, quorum, backups and maintenance fit together. Next is how the API itself can be extended.
 
 ## Common pitfalls
 
 > [!WARNING]
-> A managed control plane does not remove responsibility for application data and workload security. Replication is not a substitute for a recoverable backup.
+> - **Assuming a managed service operates the workloads.** The provider runs the control plane. The customer runs the applications.
+> - **Running two or four `etcd` members.** An even size tolerates no more failures than the odd size below it.
+> - **Counting on a PodDisruptionBudget for a node crash.** It governs voluntary disruption only.
+> - **Upgrading a kubelet above the API server version.** Always upgrade the API server first.
