@@ -60,7 +60,7 @@ modules:
     difficulty: intermediate
     estimated_duration: 15m
     topic: cluster-architecture
-    task_kind: investigate
+    task_kind: build
     tags:
     - control-plane
     - etcd
@@ -99,7 +99,7 @@ modules:
     difficulty: intermediate
     estimated_duration: 15m
     topic: kubernetes-api
-    task_kind: troubleshoot
+    task_kind: troubleshooting
     tags:
     - labels
     - selectors
@@ -140,7 +140,7 @@ modules:
     difficulty: intermediate
     estimated_duration: 20m
     topic: pods
-    task_kind: troubleshoot
+    task_kind: troubleshooting
     tags:
     - pod
     - probes
@@ -259,7 +259,7 @@ modules:
     difficulty: intermediate
     estimated_duration: 20m
     topic: administration
-    task_kind: troubleshoot
+    task_kind: troubleshooting
     tags:
     - kubectl
     - kubeconfig
@@ -418,7 +418,7 @@ modules:
     difficulty: intermediate
     estimated_duration: 20m
     topic: scheduling
-    task_kind: troubleshoot
+    task_kind: troubleshooting
     tags:
     - scheduler
     - nodeselector
@@ -457,7 +457,7 @@ modules:
     difficulty: intermediate
     estimated_duration: 20m
     topic: scheduling
-    task_kind: troubleshoot
+    task_kind: troubleshooting
     tags:
     - capacity
     - requests
@@ -485,7 +485,7 @@ modules:
     difficulty: advanced
     estimated_duration: 40m
     topic: scheduling
-    task_kind: troubleshoot
+    task_kind: troubleshooting
     tags:
     - scheduler
     - nodeselector
@@ -534,7 +534,7 @@ modules:
     difficulty: intermediate
     estimated_duration: 20m
     topic: containers
-    task_kind: troubleshoot
+    task_kind: troubleshooting
     tags:
     - containers
     - namespaces
@@ -572,7 +572,7 @@ modules:
     difficulty: intermediate
     estimated_duration: 20m
     topic: images
-    task_kind: troubleshoot
+    task_kind: troubleshooting
     tags:
     - images
     - registry
@@ -638,7 +638,7 @@ modules:
     difficulty: advanced
     estimated_duration: 40m
     topic: containers
-    task_kind: troubleshoot
+    task_kind: troubleshooting
     tags:
     - oomkilled
     - image-pull
